@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>LF-Decentralized-Trust-labs/proof-of-process main preview</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <style type="text/css">/*<![CDATA[*/
+      body { font-family: "Helvetica Neue","Open Sans", Helvetica, Calibri,sans-serif; }
+      h1, h2, td { font-family: "Helvetica Neue", "Roboto Condensed", "Open Sans", Helvetica, Calibri, sans-serif; }
+      h1 { font-size: 20px; } h2 { font-size: 16px; }
+      table { margin: 5px 10px; border-collapse: collapse; }
+      th, td { font-weight: normal; text-align: left; padding: 2px 5px; }
+      a:link { color: #000; } a:visited { color: #00a; }
+    /*]]>*/</style>
+  </head>
+  <body>
+    <h1>Editor's drafts for main branch of <a href="https://github.com/LF-Decentralized-Trust-labs/proof-of-process">LF-Decentralized-Trust-labs/proof-of-process</a></h1>
+    <p>View <a href="issues.html">saved issues</a>, or the latest GitHub <a href="https://github.com/LF-Decentralized-Trust-labs/proof-of-process/issues">issues</a> and <a href="https://github.com/LF-Decentralized-Trust-labs/proof-of-process/pulls">pull requests</a> in the <a href="https://github.com/LF-Decentralized-Trust-labs/proof-of-process">repo</a>.</p>
+    <table id="branch-main">
+      <tr>
+        <td><a href="./draft-condrey-cpop-appraisal.html" class="html draft-condrey-cpop-appraisal" title="Cryptographic Proof of Process (CPoP): Forensic Appraisal and Security Model (HTML)">CPoP Appraisal</a></td>
+        <td><a href="./draft-condrey-cpop-appraisal.txt" class="txt draft-condrey-cpop-appraisal" title="Cryptographic Proof of Process (CPoP): Forensic Appraisal and Security Model (Text)">plain text</a></td>
+        <td><a href="https://datatracker.ietf.org/doc/draft-condrey-cpop-appraisal" class="dt draft-condrey-cpop-appraisal" title="Datatracker for draft-condrey-cpop-appraisal">datatracker</a></td>
+        <td><a href="https://author-tools.ietf.org/api/iddiff?doc_1=draft-condrey-cpop-appraisal&amp;url_2=https://LF-Decentralized-Trust-labs.github.io/proof-of-process/draft-condrey-cpop-appraisal.txt" class="diff draft-condrey-cpop-appraisal">diff with last submission</a></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><a href="./draft-condrey-cpop-protocol.html" class="html draft-condrey-cpop-protocol" title="Cryptographic Proof of Process (CPoP): Architecture and Evidence Format (HTML)">CPoP Protocol</a></td>
+        <td><a href="./draft-condrey-cpop-protocol.txt" class="txt draft-condrey-cpop-protocol" title="Cryptographic Proof of Process (CPoP): Architecture and Evidence Format (Text)">plain text</a></td>
+        <td><a href="https://datatracker.ietf.org/doc/draft-condrey-cpop-protocol" class="dt draft-condrey-cpop-protocol" title="Datatracker for draft-condrey-cpop-protocol">datatracker</a></td>
+        <td><a href="https://author-tools.ietf.org/api/iddiff?doc_1=draft-condrey-cpop-protocol&amp;url_2=https://LF-Decentralized-Trust-labs.github.io/proof-of-process/draft-condrey-cpop-protocol.txt" class="diff draft-condrey-cpop-protocol">diff with last submission</a></td>
+        <td></td>
+      </tr>
+    </table>
+    <script>
+window.onload = function() {
+  var referrer_branch = 'main';
+  // e.g., "https://github.com/user/repo/tree/main"
+  var chunks = document.referrer.split("/");
+  if (chunks[2] === 'github.com' && chunks[5] === 'tree') {
+    referrer_branch = chunks[6];
+  }
+  let branch = document.querySelector('#branch-' + referrer_branch);
+  let h = document.location.hash.substring(1);
+  if (h === 'show') {
+    document.location.hash = '#' + branch.id;
+  } else if (branch && h.startsWith('go')) {
+    let e = branch.querySelector(h.substring(2));
+    if (e && e.href) {
+      document.location = e.href;
+    }
+  }
+};
+    </script>
+  </body>
+</html>
