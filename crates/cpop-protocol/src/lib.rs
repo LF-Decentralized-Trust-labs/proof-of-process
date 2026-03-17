@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: Apache-2.0
+
+//! CPoP wire format types, CBOR/COSE codec, and evidence builder/verifier.
+
+pub mod baseline;
+pub mod c2pa;
+pub mod codec;
+pub mod crypto;
+pub mod error;
+pub mod evidence;
+pub mod forensics;
+pub mod identity;
+pub mod rfc;
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
+pub use crate::error::{Error, Result};
+
+pub const PROTOCOL_VERSION: u32 = 1;

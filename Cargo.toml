@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cpop-jitter",
+    "crates/cpop-protocol",
+]
+
+[workspace.package]
+authors = ["David Condrey <david@writerslogic.com>"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/LF-Decentralized-Trust-labs/proof-of-process"

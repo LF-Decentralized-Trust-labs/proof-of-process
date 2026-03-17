@@ -3,9 +3,9 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/branding/production/png/pop-logo-white.png" width="420">
-  <source media="(prefers-color-scheme: light)" srcset="assets/branding/production/png/pop-logo-black.png" width="420">
-  <img alt="Proof-of-Process" src="assets/branding/production/png/pop-logo-black.png" width="420">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/branding/production/white/png/cpop.png" width="420">
+  <source media="(prefers-color-scheme: light)" srcset="assets/branding/production/dark/png/cpop.png" width="420">
+  <img alt="Cryptographic Proof of Process" src="assets/branding/production/dark/png/cpop.png" width="420">
 </picture>
 
 ### Cryptographic attestation of human cognitive involvement in digital content creation
@@ -14,10 +14,10 @@
 [![IETF Drafts](https://img.shields.io/badge/IETF-Internet--Drafts-blue?style=for-the-badge&logo=ietf)](https://lf-decentralized-trust-labs.github.io/proof-of-process/)
 [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/LF-Decentralized-Trust-labs/proof-of-process?style=for-the-badge&label=scorecard)](https://scorecard.dev/viewer/?uri=github.com/LF-Decentralized-Trust-labs/proof-of-process)
 
+[![cpop-protocol](https://img.shields.io/crates/d/cpop-protocol?style=flat-square&label=cpop-protocol)](https://crates.io/crates/cpop-protocol)
+[![cpop-jitter](https://img.shields.io/crates/d/cpop-jitter?style=flat-square&label=cpop-jitter)](https://crates.io/crates/cpop-jitter)
 [![RATS WG](https://img.shields.io/badge/IETF-RATS_WG-informational?style=flat-square)](https://datatracker.ietf.org/wg/rats/about/)
 [![RFC 9334](https://img.shields.io/badge/RFC-9334-informational?style=flat-square)](https://www.rfc-editor.org/rfc/rfc9334)
-[![C2PA](https://img.shields.io/badge/C2PA-Content_Provenance-informational?style=flat-square)](https://c2pa.org/)
-[![W3C VC](https://img.shields.io/badge/W3C-Verifiable_Credentials-informational?style=flat-square)](https://www.w3.org/TR/vc-data-model-2.0/)
 
 An [LF Decentralized Trust](https://www.lfdecentralizedtrust.org/) Lab
 
@@ -41,9 +41,10 @@ This repository is the home of the **Proof-of-Process (CPoP) protocol specificat
   - [`draft-condrey-cpop-appraisal`](draft-condrey-cpop-appraisal.md) — The appraisal methodology: forensic evaluation, security model, and trust calibration
 - **A CDDL schema** ([`cddl/cpop.cddl`](cddl/cpop.cddl)) defining the CBOR-encoded wire format for Evidence Packets and Writers Authenticity Reports
 - **Architecture and integration documentation** mapping CPoP to [C2PA](docs/integration/c2pa.md), [CAWG](docs/integration/cawg.md), and [DID/VC](docs/integration/did.md) ecosystems
+- **Reference implementation crates** in Rust:
+  - [`cpop-jitter`](crates/cpop-jitter/) — Timing jitter entropy primitive (`no_std` compatible)
+  - [`cpop-protocol`](crates/cpop-protocol/) — Wire format, CBOR/COSE codec, evidence builder/verifier
 - **A complete build pipeline** ([`Makefile`](Makefile) + [GitHub Actions](.github/workflows/)) that compiles drafts to HTML/TXT and publishes editor's copies to GitHub Pages
-
-This is **not** a reference implementation or SDK — it is the specification that implementations are built against.
 
 ## Why This Exists
 
