@@ -29,7 +29,7 @@ The repository contains a formal CDDL schema, architecture documentation, integr
 
 ### Specification
 
-- [ ] CDDL schema validation tooling integrated into CI
+- [x] CDDL schema validation tooling integrated into CI
 - [ ] Test vectors for Evidence Packet and Writers Authenticity Report encoding
 - [ ] IANA registration requests drafted (CBOR tags, media types)
 
