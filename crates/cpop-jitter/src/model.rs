@@ -416,6 +416,14 @@ mod tests {
     }
 
     #[test]
+    fn test_zero_length_input() {
+        let model = HumanModel::default();
+        let result = model.validate(&[]);
+        assert!(!result.is_human);
+        assert_eq!(result.stats.count, 0);
+    }
+
+    #[test]
     fn test_exactly_min_sequence_length() {
         let model = HumanModel::default();
         let jitters: Vec<Jitter> = (0..model.min_sequence_length)

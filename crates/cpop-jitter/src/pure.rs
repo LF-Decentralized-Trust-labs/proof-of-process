@@ -22,7 +22,6 @@ impl Default for PureJitter {
 }
 
 impl PureJitter {
-    ///
     /// # Panics
     /// Panics if `range` is 0.
     pub fn new(jmin: u32, range: u32) -> Self {
