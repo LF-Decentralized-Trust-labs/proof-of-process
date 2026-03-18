@@ -227,7 +227,6 @@ impl EvidenceChain {
     }
 
     /// Check whether the chain exceeds [`MAX_EVIDENCE_RECORDS`].
-    ///
     /// This is enforced automatically during serde deserialization via
     /// `#[serde(try_from)]`. This method remains public for manual checks
     /// on chains built programmatically.
@@ -268,13 +267,11 @@ impl EvidenceChain {
         self.records.push(evidence);
     }
 
-    /// Empty chains verify with any secret (both MACs are zero).
     pub fn verify_integrity(&self, secret: &[u8; 32]) -> bool {
         use hmac::{Hmac, Mac};
-        use sha2::Sha256;
         use subtle::ConstantTimeEq;
 
-        type HmacSha256 = Hmac<Sha256>;
+        type HmacSha256 = Hmac<sha2::Sha256>;
 
         let mut expected_mac = [0u8; 32];
         for evidence in &self.records {
@@ -282,6 +279,22 @@ impl EvidenceChain {
             mac.update(&expected_mac);
             evidence.hash_into_mac(&mut mac);
             let result = mac.finalize().into_bytes();
+            expected_mac.copy_from_slice(&result);
+        }
+
+        expected_mac.ct_eq(&self.chain_mac).into()
+    }
+
+    pub fn verify_integrity_unkeyed(&self) -> bool {
+        use sha2::{Digest, Sha256};
+        use subtle::ConstantTimeEq;
+
+        let mut expected_mac = [0u8; 32];
+        for evidence in &self.records {
+            let mut hasher = Sha256::new();
+            hasher.update(expected_mac);
+            evidence.hash_into(&mut hasher);
+            let result = hasher.finalize();
             expected_mac.copy_from_slice(&result);
         }
 
@@ -689,6 +702,49 @@ mod tests {
 
         assert!(!chain.verify_integrity(&secret));
         assert!(!chain.validate_sequences());
+    }
+
+    #[test]
+    fn test_unkeyed_chain_verify_integrity() {
+        let mut chain = EvidenceChain::new();
+
+        chain.append(Evidence::pure(1000));
+        chain.append(Evidence::phys([1u8; 32].into(), 1500));
+        chain.append(Evidence::pure(2000));
+        chain.append(Evidence::phys([2u8; 32].into(), 2500));
+        chain.append(Evidence::pure(3000));
+
+        assert!(chain.verify_integrity_unkeyed());
+    }
+
+    #[test]
+    fn test_unkeyed_chain_keyed_verify_fails() {
+        let mut chain = EvidenceChain::new();
+
+        chain.append(Evidence::pure(1000));
+        chain.append(Evidence::phys([1u8; 32].into(), 1500));
+        chain.append(Evidence::pure(2000));
+
+        assert!(!chain.verify_integrity(&[0u8; 32]));
+    }
+
+    #[test]
+    fn test_tampered_chain_fails_verification() {
+        let secret = [42u8; 32];
+        let mut chain = EvidenceChain::with_secret(secret);
+
+        chain.append(Evidence::pure(1000));
+        chain.append(Evidence::pure(1500));
+        chain.append(Evidence::pure(2000));
+
+        assert!(chain.verify_integrity(&secret));
+
+        // Tamper with jitter in record[1]
+        if let Some(Evidence::Pure { jitter, .. }) = chain.records.get_mut(1) {
+            *jitter = 42_000;
+        }
+
+        assert!(!chain.verify_integrity(&secret));
     }
 
     #[test]
