@@ -1,14 +1,14 @@
 [package]
 name = "cpop-protocol"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["David Condrey <david@writerslogic.com>"]
 license = "Apache-2.0"
 description = "Reference implementation of the Cryptographic Proof of Process (CPoP) protocol"
 repository = "https://github.com/LF-Decentralized-Trust-labs/proof-of-process"
 readme = "README.md"
-keywords = ["cryptography", "authentication", "cpop", "ietf", "rats"]
-categories = ["cryptography", "authentication"]
+keywords = ["cryptography", "authorship", "cbor", "attestation", "provenance"]
+categories = ["cryptography", "authentication", "encoding", "parser-implementations"]
 rust-version = "1.75.0"
 homepage = "https://lf-decentralized-trust-labs.github.io/proof-of-process/"
 documentation = "https://docs.rs/cpop-protocol"
@@ -46,6 +46,8 @@ hex = "0.4"
 base64 = "0.22"
 serde_bytes = "0.11.19"
 cpop-jitter = { path = "../cpop-jitter", version = "0.2.0" }
+uuid = { version = "1", features = ["v4", "serde"] }
+urlencoding = "2"
 
 # Identity & X.509
 x509-cert = { version = "0.2.5", features = ["builder", "pem"] }

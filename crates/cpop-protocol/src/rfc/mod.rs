@@ -1,7 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! RFC-compliant data structures for Proof-of-Process evidence.
+//!
+//! This module implements the CDDL-defined structures from draft-condrey-rats-pop-01
+//! and draft-condrey-rats-pop-schema-01. All structures support both CBOR and JSON
+//! serialization for backwards compatibility.
+
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
+
+pub mod biology;
+pub mod checkpoint;
+pub mod fixed_point;
+pub mod jitter_binding;
+pub mod packet;
+pub(crate) mod serde_helpers;
+pub mod time_evidence;
+pub mod vdf;
+pub mod wire_types;
+
+pub use biology::{
+    BiologyInvariantClaim, BiologyMeasurements, BiologyScoringParameters, ValidationStatus,
+};
+pub use checkpoint::{BioBinding, CheckpointRfc, SaVdfProof};
+pub use fixed_point::{
+    Centibits, DeciWpm, Decibits, Microdollars, Millibits, RhoMillibits, SlopeDecibits,
+};
+pub use jitter_binding::{
+    ActiveProbes, BindingMac, EntropyCommitment, GaltonInvariant, JitterBinding, JitterSummary,
+    LabyrinthStructure, ReflexGate,
+};
+pub use packet::{
+    ContentHashTree, CorrelationProof, EnclaveVise, ErrorTopology, JitterSealStructure,
+    KeyRotationMetadata, PacketRfc, PrivacyBudgetCertificate, ProfileDeclaration, VdfStructure,
+    ZkProcessVerdict,
+};
+pub use time_evidence::{
+    BlockchainAnchor, RoughtimeSample, TimeBindingTier, TimeEvidence, TsaResponse,
+};
+pub use vdf::{CalibrationAttestation, VdfProofRfc};
+pub use wire_types::{AttestationResultWire, CheckpointWire, EvidencePacketWire};
 
 /// CBOR tag for CPoP evidence packets (0x43504F50 = "CPOP").
 pub const CBOR_TAG_EVIDENCE_PACKET: u64 = 1129336656;
