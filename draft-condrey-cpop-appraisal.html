@@ -1478,7 +1478,7 @@ appear in all capitals, as shown here.<a href="#section-3-1" class="pilcrow">¶<
           <p id="section-4-2.2.1"><em>Chain Integrity:</em> Verify the hash link (using the Evidence Packet's selected hash function H, as defined in <span>[<a href="#CPoP-Protocol" class="cite xref">CPoP-Protocol</a>]</span>) between all checkpoints. For continuation packets (previous-packet-ref present), additionally verify that the first checkpoint's prev-hash equals the final checkpoint-hash of the preceding Evidence Packet and that checkpoint sequence numbers are globally monotonic across the series. Any break invalidates the entire Evidence Packet (or series). The Verifier <span class="bcp14">MUST</span> set the verdict to invalid (4). The warnings field <span class="bcp14">SHOULD</span> include the checkpoint sequence number where the break was detected.<a href="#section-4-2.2.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-4-2.3">
-          <p id="section-4-2.3.1"><em>Temporal Order:</em> For each process-proof, recompute Argon2id from the declared seed to obtain state_0, then verify sampled Merkle proofs against the committed root (process-proof key 4, merkle-root). Verify that claimed-duration is within [0.5x, 3.0x] of the expected wall-clock time for the declared proof-params on reference hardware (defined as a system with DDR4 memory providing approximately 25 GB/s sustained bandwidth). Expected times are defined in <span>[<a href="#CPoP-Protocol" class="cite xref">CPoP-Protocol</a>]</span>, Mandatory SWF Parameters section. When comparing timestamps across devices or against external time sources, the clock skew tolerances defined in <a href="#clock-skew-tolerance" class="auto internal xref">Section 4.1</a> <span class="bcp14">MUST</span> be applied.<a href="#section-4-2.3.1" class="pilcrow">¶</a></p>
+          <p id="section-4-2.3.1"><em>Temporal Order:</em> For each process-proof, recompute Argon2id from the declared seed to obtain state_0, then verify sampled Merkle proofs against the committed root (process-proof key 4, merkle-root). Verify that claimed-duration is within [0.5x, 3.0x] of the expected wall-clock time for the declared proof-params on reference hardware. Reference hardware is defined as a system with DDR4-2400 memory providing 25 GB/s peak bandwidth at 100% utilization with no OS scheduling contention. Verifiers operating on different hardware <span class="bcp14">MUST</span> apply a correction factor proportional to measured memory bandwidth. The [0.5x, 3.0x] tolerance range accommodates typical hardware variation. Expected times are defined in <span>[<a href="#CPoP-Protocol" class="cite xref">CPoP-Protocol</a>]</span>, Mandatory SWF Parameters section. When comparing timestamps across devices or against external time sources, the clock skew tolerances defined in <a href="#clock-skew-tolerance" class="auto internal xref">Section 4.1</a> <span class="bcp14">MUST</span> be applied.<a href="#section-4-2.3.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-4-2.4">
           <p id="section-4-2.4.1"><em>Entropy Threshold:</em> Independently estimate entropy from the jitter-binding intervals array using a standard entropy estimator (e.g., NIST SP 800-90B most common value estimator). Verify the independent estimate meets or exceeds 3.0 bits per inter-keystroke interval <span>[<a href="#Dhakal2018" class="cite xref">Dhakal2018</a>]</span>. The Attester's self-reported entropy-estimate field <span class="bcp14">MUST NOT</span> be relied upon. Low-entropy segments (below threshold) <span class="bcp14">MUST</span> be flagged as "Non-Biological."<a href="#section-4-2.4.1" class="pilcrow">¶</a></p>
@@ -1490,14 +1490,19 @@ appear in all capitals, as shown here.<a href="#section-3-1" class="pilcrow">¶<
           <p id="section-4-2.6.1"><em>State Matching:</em> Verify that the final checkpoint's content-hash matches the document-ref content-hash. Verify that the cumulative char-count from edit-deltas is consistent with the document-ref char-count.<a href="#section-4-2.6.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-4-2.7">
-          <p id="section-4-2.7.1"><em>Channel Binding:</em> If the Evidence Packet contains a channel-binding field and was received over TLS, verify that the binding-value matches the locally-computed TLS Exported Keying Material. The Verifier <span class="bcp14">MUST</span> reject the Evidence Packet on mismatch.<a href="#section-4-2.7.1" class="pilcrow">¶</a></p>
+          <p id="section-4-2.7.1"><em>Channel Binding:</em> If the Evidence Packet contains a channel-binding field and was received over TLS, verify that the binding-value matches the locally-computed TLS Exported Keying Material. The Verifier <span class="bcp14">MUST</span> reject the Evidence Packet on mismatch. If channel binding verification fails, the Verifier <span class="bcp14">MUST</span> assign the verdict invalid (4).<a href="#section-4-2.7.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
 <p id="section-4-3">Steps 4 and 5 apply only when jitter-binding and entangled-binding fields
 are present (ENHANCED and MAXIMUM profiles). For CORE Evidence Packets
 lacking these fields, the Verifier <span class="bcp14">MUST</span> skip Steps 4 and 5 and note
 in the WAR warnings that behavioral analysis was not performed.<a href="#section-4-3" class="pilcrow">¶</a></p>
-<p id="section-4-4">When appraising a series of continuation packets (linked via
+<ol start="1" type="1" class="normal type-1" id="section-4-4">
+<li id="section-4-4.1">
+          <p id="section-4-4.1.1"><em>Profile Matching:</em> If the Verifier's policy requires ENHANCED or MAXIMUM evidence but the Evidence Packet provides only CORE content tier, the Verifier <span class="bcp14">MUST</span> assign the verdict inconclusive (2) and include a warning indicating the content tier mismatch.<a href="#section-4-4.1.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+<p id="section-4-5">When appraising a series of continuation packets (linked via
 previous-packet-ref as defined in <span>[<a href="#CPoP-Protocol" class="cite xref">CPoP-Protocol</a>]</span>),
 the Verifier <span class="bcp14">MUST</span> apply the above steps to each packet
 individually and additionally verify cross-packet linkage:
@@ -1509,7 +1514,7 @@ in the Attestation Result <span class="bcp14">SHOULD</span> reflect the aggregat
 across the entire series. Forensic assessment (Session
 Consistency Analysis in particular) <span class="bcp14">SHOULD</span> be evaluated across
 packet boundaries to detect behavioral discontinuities at
-rollover points.<a href="#section-4-4" class="pilcrow">¶</a></p>
+rollover points.<a href="#section-4-5" class="pilcrow">¶</a></p>
 <div id="clock-skew-tolerance">
 <section id="section-4.1">
         <h3 id="name-clock-skew-tolerance">
@@ -1579,7 +1584,7 @@ in the profile-uri metadata.<a href="#section-4.1-3" class="pilcrow">¶</a></p>
       </h2>
 <p id="section-5-1">The appraisal logic is designed to detect "Synthetic Authoring" -- content generated by AI and subsequently "back-filled" with timing and hardware attestation.<a href="#section-5-1" class="pilcrow">¶</a></p>
 <p id="section-5-2">NOTE: The specific numeric thresholds in this section (e.g.,
-spectral flatness 0.9, CLC correlation r &lt; 0.2, CoV bounds)
+spectral flatness 0.9, CLC metric r &lt; 0.2, CoV bounds)
 are initial calibration values derived from empirical
 observation of human authoring behavior <span>[<a href="#ScholaWrite" class="cite xref">ScholaWrite</a>]</span>. Refinement of these
 values based on implementation experience is an explicit goal
@@ -1591,17 +1596,17 @@ verdict (see the composite assessment procedure below).<a href="#section-5-2" cl
 <span class="break"></span><dl class="dlParallel" id="section-5-3">
         <dt id="section-5-3.1">SNR (Signal-to-Noise Ratio) Analysis:</dt>
         <dd style="margin-left: 1.5em" id="section-5-3.2">
-          <p id="section-5-3.2.1">Verifiers <span class="bcp14">MUST</span> compute the power spectral density of jitter intervals. Human motor signals exhibit characteristic noise patterns consistent with biological motor control <span>[<a href="#Monrose2000" class="cite xref">Monrose2000</a>]</span>. Evidence exhibiting spectral flatness greater than 0.9 (indicating white noise rather than biological 1/f-like noise <span>[<a href="#Gilden2001" class="cite xref">Gilden2001</a>]</span><span>[<a href="#Kello2007" class="cite xref">Kello2007</a>]</span>) <span class="bcp14">MUST</span> be flagged as potentially synthetic.<a href="#section-5-3.2.1" class="pilcrow">¶</a></p>
+          <p id="section-5-3.2.1">Verifiers <span class="bcp14">MUST</span> compute the power spectral density of jitter intervals. Human motor signals exhibit characteristic noise patterns consistent with biological motor control <span>[<a href="#Monrose2000" class="cite xref">Monrose2000</a>]</span>. Evidence exhibiting spectral flatness greater than 0.9 (indicating white noise rather than biological 1/f-like noise <span>[<a href="#Gilden2001" class="cite xref">Gilden2001</a>]</span><span>[<a href="#Kello2007" class="cite xref">Kello2007</a>]</span>) <span class="bcp14">MUST</span> be flagged as potentially synthetic. Spectral flatness is computed as the ratio of the geometric mean to the arithmetic mean of the power spectral density (PSD) of the inter-keystroke interval sequence: SF = exp(mean(ln(PSD))) / mean(PSD). The PSD <span class="bcp14">MUST</span> be estimated using Welch's method with a minimum window of 64 samples and 50% overlap. A spectral flatness value approaching 1.0 indicates white noise (synthetic); values below 0.5 are characteristic of natural 1/f-like human timing.<a href="#section-5-3.2.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="section-5-3.3">Cognitive Load Correlation (CLC):</dt>
         <dd style="margin-left: 1.5em" id="section-5-3.4">
-          <p id="section-5-3.4.1">Verifiers <span class="bcp14">MUST</span> correlate timing patterns with semantic complexity. Human authors exhibit increased inter-keystroke intervals (IKI) and pause frequency during composition of semantically complex segments compared to simple connective text <span>[<a href="#Dhakal2018" class="cite xref">Dhakal2018</a>]</span>. Verifiers <span class="bcp14">MUST</span> compute the Pearson correlation between segment semantic complexity and mean IKI. Evidence with r &lt; 0.2 (or r &lt; 0.1 in assistive mode) <span class="bcp14">MUST</span> be flagged as a Semantic Mismatch.<a href="#section-5-3.4.1" class="pilcrow">¶</a></p>
+          <p id="section-5-3.4.1">Verifiers <span class="bcp14">MUST</span> correlate timing patterns with semantic complexity. Human authors exhibit increased inter-keystroke intervals (IKI) and pause frequency during composition of semantically complex segments compared to simple connective text <span>[<a href="#Dhakal2018" class="cite xref">Dhakal2018</a>]</span>. Verifiers <span class="bcp14">MUST</span> compute the Pearson correlation between segment semantic complexity and mean IKI. Evidence with r &lt; 0.2 (or r &lt; 0.1 in assistive mode) <span class="bcp14">MUST</span> be flagged as a Semantic Mismatch. Semantic complexity per checkpoint is estimated as the normalized compression ratio of the inserted text: complexity = 1 - (compressed_length / raw_length), where compression uses the DEFLATE algorithm (RFC 1951) on the UTF-8 encoded insertion. Higher values indicate more complex, less repetitive content. The CLC metric coefficient r is computed as Pearson's correlation between per-checkpoint semantic complexity and per-checkpoint mean inter-keystroke interval across all checkpoints in the session.<a href="#section-5-3.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="section-5-3.5">Mechanical Turk Detection:</dt>
         <dd style="margin-left: 1.5em" id="section-5-3.6">
-          <p id="section-5-3.6.1">Verifiers <span class="bcp14">MUST</span> compute C_intra (Pearson correlation between pause duration and subsequent edit complexity within each checkpoint). C_intra values below 0.15 <span class="bcp14">MUST</span> be flagged as indicating robotic pacing, where an automated system maintains a machine-clocked editing rate independent of content demands.<span>[<a href="#Monrose2000" class="cite xref">Monrose2000</a>]</span><span>[<a href="#Monaco2018" class="cite xref">Monaco2018</a>]</span> Checkpoints containing receipt structures (key 13) <span class="bcp14">MUST</span> have their associated paste events excluded from C_intra computation.<a href="#section-5-3.6.1" class="pilcrow">¶</a></p>
+          <p id="section-5-3.6.1">Verifiers <span class="bcp14">MUST</span> compute C_intra (Pearson correlation between pause duration and subsequent edit complexity within each checkpoint). C_intra is computed per checkpoint as: C_intra = standard_deviation(IKI) / mean(IKI), where IKI is the set of inter-keystroke intervals within that checkpoint. Pause duration refers to inter-keystroke intervals exceeding 500 milliseconds. Edit complexity is the character-level Levenshtein distance between the document state at checkpoint start and checkpoint end, normalized by checkpoint character count. C_intra values below 0.15 <span class="bcp14">MUST</span> be flagged as indicating robotic pacing, where an automated system maintains a machine-clocked editing rate independent of content demands.<span>[<a href="#Monrose2000" class="cite xref">Monrose2000</a>]</span><span>[<a href="#Monaco2018" class="cite xref">Monaco2018</a>]</span> Checkpoints containing receipt structures (key 13) <span class="bcp14">MUST</span> have their associated paste events excluded from C_intra computation.<a href="#section-5-3.6.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="section-5-3.7">Error Topology Analysis:</dt>
@@ -1626,7 +1631,7 @@ verdict (see the composite assessment procedure below).<a href="#section-5-2" cl
         <dd class="break"></dd>
 <dt id="section-5-3.15">Perplexity Scoring:</dt>
         <dd style="margin-left: 1.5em" id="section-5-3.16">
-          <p id="section-5-3.16.1">Verifiers <span class="bcp14">SHOULD</span> compute the character-level perplexity of text inserted during each checkpoint interval using a reference language model. Sudden drops in perplexity (highly predictable text) that correlate with rapid insertion rates (characters per second exceeding the session's 95th percentile) <span class="bcp14">MUST</span> be flagged as potential AI injection. A perplexity drop exceeding 50% relative to the session median, sustained for more than 100 consecutive inserted characters, constitutes a flag. Checkpoints containing receipt structures (key 13) <span class="bcp14">MUST</span> have their associated paste events excluded from perplexity scoring.<a href="#section-5-3.16.1" class="pilcrow">¶</a></p>
+          <p id="section-5-3.16.1">Verifiers that support a reference language model <span class="bcp14">MUST</span> compute per-checkpoint perplexity over characters inserted during that checkpoint only. Verifiers without access to a reference language model <span class="bcp14">MUST</span> omit the perplexity flag from forensic-summary and <span class="bcp14">MUST NOT</span> treat its absence as a verification failure. Verifiers <span class="bcp14">SHOULD</span> compute the character-level perplexity of text inserted during each checkpoint interval using a reference language model. Sudden drops in perplexity (highly predictable text) that correlate with rapid insertion rates (characters per second exceeding the session's 95th percentile) <span class="bcp14">MUST</span> be flagged as potential AI injection. A perplexity drop exceeding 50% relative to the session median, sustained for more than 100 consecutive inserted characters, constitutes a flag. Checkpoints containing receipt structures (key 13) <span class="bcp14">MUST</span> have their associated paste events excluded from perplexity scoring.<a href="#section-5-3.16.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="section-5-3.17">Biological Cadence Analysis:</dt>
@@ -1651,7 +1656,15 @@ verdict:<a href="#section-5-5" class="pilcrow">¶</a></p>
 <li id="section-5-6.1">
           <p id="section-5-6.1.1"><em>Multi-flag threshold:</em> If two or more independent
 forensic mechanisms trigger flags, the Verifier <span class="bcp14">MUST</span> assign
-the suspicious verdict regardless of checkpoint coverage.<a href="#section-5-6.1.1" class="pilcrow">¶</a></p>
+the suspicious verdict regardless of checkpoint coverage.
+A contradiction arises when two or more forensic mechanisms
+produce opposing assessments of the same behavioral evidence
+(e.g., one mechanism flags synthetic timing while another
+confirms natural revision patterns). When contradictory
+results occur, the Verifier <span class="bcp14">MUST</span> assign the more conservative
+verdict. Specifically: if any mechanism triggers a flag, the
+flag stands regardless of non-triggering mechanisms.
+Non-triggering mechanisms do not cancel triggered flags.<a href="#section-5-6.1.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-5-6.2">
           <p id="section-5-6.2.1"><em>Sustained single-flag threshold:</em> If exactly one
@@ -1802,7 +1815,7 @@ this cross-tool composition pattern from prompt-copy-paste
 workflows by evaluating whether: (1) paste events are
 concentrated at session start rather than distributed
 throughout; (2) post-paste editing exhibits normal behavioral
-signals (IKI variance, CLC correlation, error topology
+signals (IKI variance, CLC metric, error topology
 consistent with human editing); and (3) the session's
 paste-to-keystroke ratio reflects a single transfer event
 rather than repeated injections. When cross-tool composition
@@ -2080,29 +2093,30 @@ cost-unit.<a href="#section-6.3-3" class="pilcrow">¶</a></p>
       <h2 id="name-absence-proofs-negative-evi">
 <a href="#section-7" class="section-number selfRef">7. </a><a href="#name-absence-proofs-negative-evi" class="section-name selfRef">Absence Proofs: Negative Evidence Taxonomy</a>
       </h2>
-<p id="section-7-1">Absence proofs assert that certain events did not occur during the monitored session. They are divided into categories based on verifiability:<a href="#section-7-1" class="pilcrow">¶</a></p>
-<span class="break"></span><dl class="dlParallel" id="section-7-2">
-        <dt id="section-7-2.1">Type 1: Computationally-Bound Claims</dt>
-        <dd style="margin-left: 1.5em" id="section-7-2.2">
-          <p id="section-7-2.2.1">Verifiable from the Evidence Packet alone (e.g., "Max single delta size &lt; 500 bytes" or "No checkpoint timestamps out of order").<a href="#section-7-2.2.1" class="pilcrow">¶</a></p>
+<p id="section-7-1">Absence proofs are assertions that supplement but do not override forensic analysis. Forensic flags take precedence over contradictory absence claims when determining the verdict. Type 1 (computationally-bound) claims may strengthen an authentic verdict. Type 2 (monitoring-dependent) and Type 3 (environmental) claims are informational and weighted by attestation tier.<a href="#section-7-1" class="pilcrow">¶</a></p>
+<p id="section-7-2">Absence proofs assert that certain events did not occur during the monitored session. They are divided into categories based on verifiability:<a href="#section-7-2" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-7-3">
+        <dt id="section-7-3.1">Type 1: Computationally-Bound Claims</dt>
+        <dd style="margin-left: 1.5em" id="section-7-3.2">
+          <p id="section-7-3.2.1">Verifiable from the Evidence Packet alone (e.g., "Max single delta size &lt; 500 bytes" or "No checkpoint timestamps out of order").<a href="#section-7-3.2.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-7-2.3">Type 2: Monitoring-Dependent Claims</dt>
-        <dd style="margin-left: 1.5em" id="section-7-2.4">
-          <p id="section-7-2.4.1">Require trust in the AE's event monitoring (e.g., "No paste from unauthorized AI tool" or "No clipboard activity detected"). Trust in these claims <span class="bcp14">MUST</span> be weighted by the declared Attestation Tier (T1-T4).<a href="#section-7-2.4.1" class="pilcrow">¶</a></p>
+<dt id="section-7-3.3">Type 2: Monitoring-Dependent Claims</dt>
+        <dd style="margin-left: 1.5em" id="section-7-3.4">
+          <p id="section-7-3.4.1">Require trust in the AE's event monitoring (e.g., "No paste from unauthorized AI tool" or "No clipboard activity detected"). Trust in these claims <span class="bcp14">MUST</span> be weighted by the declared Attestation Tier (T1-T4).<a href="#section-7-3.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-7-2.5">Type 3: Environmental Claims</dt>
-        <dd style="margin-left: 1.5em" id="section-7-2.6">
-          <p id="section-7-2.6.1">Assertions about the execution environment (e.g., "No debugger attached" or "Hardware temperature remained within stable physical bounds").<a href="#section-7-2.6.1" class="pilcrow">¶</a></p>
+<dt id="section-7-3.5">Type 3: Environmental Claims</dt>
+        <dd style="margin-left: 1.5em" id="section-7-3.6">
+          <p id="section-7-3.6.1">Assertions about the execution environment (e.g., "No debugger attached" or "Hardware temperature remained within stable physical bounds").<a href="#section-7-3.6.1" class="pilcrow">¶</a></p>
 </dd>
       <dd class="break"></dd>
 </dl>
-<p id="section-7-3">Type 1 (Computationally-Bound) claims <span class="bcp14">MUST</span> be verified computationally
+<p id="section-7-4">Type 1 (Computationally-Bound) claims <span class="bcp14">MUST</span> be verified computationally
 by the Verifier from the Evidence Packet data alone. Type 3
 (Environmental) claims <span class="bcp14">SHOULD</span> be evaluated against physical-state
 markers when present, and <span class="bcp14">MUST</span> be treated as unverifiable when
-physical-state is absent.<a href="#section-7-3" class="pilcrow">¶</a></p>
+physical-state is absent.<a href="#section-7-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="war-wire-format">
@@ -2166,6 +2180,11 @@ forensic-flag = {
     3 =&gt; uint,                    ; affected-windows
     4 =&gt; uint,                    ; total-windows
 }
+
+; In the forensic-flag structure, "windows" refers to individual
+; checkpoints. The affected-windows field is the count of checkpoints
+; where the forensic mechanism triggered; total-windows is the total
+; number of checkpoints evaluated by that mechanism.
 
 entropy-report = {
     1 =&gt; float32,                 ; timing-entropy (bits/sample)
@@ -2332,19 +2351,19 @@ to evaluate the freshness of the Attestation Result.<a href="#section-8-7" class
           <dt id="section-8.1-2.1">timing-entropy:</dt>
           <dd style="margin-left: 1.5em" id="section-8.1-2.2">
             <p id="section-8.1-2.2.1">Shannon entropy of quantized jitter intervals across all
-checkpoints, expressed in bits per sample.<a href="#section-8.1-2.2.1" class="pilcrow">¶</a></p>
+checkpoints. Timing-entropy is measured in bits per inter-keystroke sample.<a href="#section-8.1-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-8.1-2.3">revision-entropy:</dt>
           <dd style="margin-left: 1.5em" id="section-8.1-2.4">
             <p id="section-8.1-2.4.1">Shannon entropy of edit-delta sizes (chars-added values)
-across all checkpoints, expressed in bits.<a href="#section-8.1-2.4.1" class="pilcrow">¶</a></p>
+across all checkpoints. Revision-entropy is measured in bits over the full session edit-delta distribution.<a href="#section-8.1-2.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-8.1-2.5">pause-entropy:</dt>
           <dd style="margin-left: 1.5em" id="section-8.1-2.6">
-            <p id="section-8.1-2.6.1">Shannon entropy of inter-checkpoint pause durations,
-expressed in bits.<a href="#section-8.1-2.6.1" class="pilcrow">¶</a></p>
+            <p id="section-8.1-2.6.1">Shannon entropy of inter-checkpoint pause durations.
+Pause-entropy is measured in bits over the session pause-duration distribution.<a href="#section-8.1-2.6.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-8.1-2.7">meets-threshold:</dt>
@@ -2433,7 +2452,12 @@ identity.<a href="#section-8.3-2.2.1" class="pilcrow">¶</a></p>
 baseline-digest using Gaussian similarity on the
 streaming-stats fields (iki-stats, cv-stats, hurst-stats,
 pause-stats). For each metric, compute the z-score of the
-session value against the baseline mean and variance.<a href="#section-8.3-2.3.1" class="pilcrow">¶</a></p>
+session value against the baseline mean and variance.
+A metric with |z| &gt; 3.0 <span class="bcp14">MUST</span> trigger a baseline-deviation
+warning. Metrics with |z| between 2.0 and 3.0 <span class="bcp14">MAY</span> be
+reported as informational warnings. Baseline deviations do
+not constitute forensic flags and do not contribute to the
+flags-triggered count in forensic-summary.<a href="#section-8.3-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
 <p id="section-8.3-3">The Verifier <span class="bcp14">SHOULD</span> weight baseline comparison results by
@@ -2487,17 +2511,15 @@ as a weighted combination:<a href="#section-8.3-5" class="pilcrow">¶</a></p>
             </tr>
           </tbody>
         </table>
-<p id="section-8.3-7">When the
+<p id="section-8.3-7">The baseline similarity thresholds in this section are preliminary values derived from limited empirical observation. Verifiers <span class="bcp14">MAY</span> adjust these thresholds based on deployment-specific population statistics. Future revisions will include sensitivity analysis and calibration methodology.<a href="#section-8.3-7" class="pilcrow">¶</a></p>
+<p id="section-8.3-8">When the
 baseline has fewer than 5 sessions (population-reference
 tier), variance estimates are unreliable and z-score
-comparisons <span class="bcp14">SHOULD</span> be treated as informational only.<a href="#section-8.3-7" class="pilcrow">¶</a></p>
-<p id="section-8.3-8">Baseline comparison does not constitute an independent
-forensic flag for the purposes of verdict assignment.
-Instead, it modulates the Verifier's confidence in the
-verdict. A mature baseline match strengthens an authentic
+comparisons <span class="bcp14">SHOULD</span> be treated as informational only.<a href="#section-8.3-8" class="pilcrow">¶</a></p>
+<p id="section-8.3-9">Baseline comparison does not constitute a forensic flag. Baseline deviations are reported in the warnings field (key 10) of the Writers Authenticity Report but do not contribute to flags-triggered in forensic-summary. This separation allows Relying Parties to weight baseline context independently from forensic mechanism anomalies. A mature baseline match strengthens an authentic
 verdict; a significant baseline deviation <span class="bcp14">SHOULD</span> be
 reported as a warning but does not by itself trigger a
-suspicious verdict.<a href="#section-8.3-8" class="pilcrow">¶</a></p>
+suspicious verdict.<a href="#section-8.3-9" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2681,6 +2703,7 @@ checkpoint as a receipt-checkpoint but <span class="bcp14">MUST NOT</span> inclu
 self-receipt content in tool-attributed-chars. The Verifier
 <span class="bcp14">SHOULD</span> emit a warning indicating that the referenced Evidence
 Packet could not be verified.<a href="#section-10-4" class="pilcrow">¶</a></p>
+<p id="section-10-5">When computing human-fraction from Evidence Packets that reference other Evidence via self-receipts, the referenced packet's attestation tier determines the confidence weight. CORE-tier references contribute with a 0.5x weight discount to human-fraction calculations. ENHANCED and MAXIMUM references contribute at full weight.<a href="#section-10-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="tool-receipt-protocol">
@@ -2709,7 +2732,15 @@ Verifier <span class="bcp14">MUST</span> perform the following steps:<a href="#s
 <li id="section-11.1-3.1">
             <p id="section-11.1-3.1.1">Retrieve the tool provider's public key corresponding to the
 tool-id URI. The mechanism for key discovery and trust
-establishment will be specified in a companion document.<a href="#section-11.1-3.1.1" class="pilcrow">¶</a></p>
+establishment will be specified in a companion document.
+Until a companion specification defines tool provider key
+discovery and trust establishment, Verifiers <span class="bcp14">MUST NOT</span> assign
+an authentic verdict to Evidence containing tool-receipts
+whose tool-id URIs cannot be resolved to a trusted public
+key. Unresolvable tool-receipts <span class="bcp14">MUST</span> be flagged in the
+warnings field of the Writers Authenticity Report. The
+Verifier <span class="bcp14">MAY</span> still evaluate all other forensic mechanisms
+and assign a verdict based on non-receipt evidence.<a href="#section-11.1-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-11.1-3.2">
             <p id="section-11.1-3.2.1">Verify the COSE_Sign1 structure in the tool-signature field
@@ -2883,7 +2914,7 @@ linking authorship sessions to real-world identities.<a href="#section-13.3-1" c
       <h2 id="name-accessibility-and-alternati">
 <a href="#section-14" class="section-number selfRef">14. </a><a href="#name-accessibility-and-alternati" class="section-name selfRef">Accessibility and Alternative Input Modes</a>
       </h2>
-<p id="section-14-1">Verifiers <span class="bcp14">MUST NOT</span> automatically reject evidence based solely on atypical timing patterns. Implementations <span class="bcp14">MUST</span> support input mode declarations that adjust SNR and CLC thresholds for authors using assistive technologies (eye-tracking, dictation, switch-access) or alternative input methods (input method editors for CJK and other non-Latin scripts).<a href="#section-14-1" class="pilcrow">¶</a></p>
+<p id="section-14-1">Verifiers <span class="bcp14">MUST NOT</span> automatically reject evidence based solely on atypical timing patterns. Implementations <span class="bcp14">MUST</span> support input mode declarations that adjust SNR and CLC metric thresholds for authors using assistive technologies (eye-tracking, dictation, switch-access) or alternative input methods (input method editors for CJK and other non-Latin scripts).<a href="#section-14-1" class="pilcrow">¶</a></p>
 <p id="section-14-2">To signal input mode usage, the Attester <span class="bcp14">SHOULD</span> include an assistive-mode indicator in the profile-declaration structure of the Evidence Packet. When this indicator is present, Verifiers <span class="bcp14">MUST</span> apply adjusted thresholds as follows:<a href="#section-14-2" class="pilcrow">¶</a></p>
 <div id="assistive-eye-tracking">
 <section id="section-14.1">
@@ -2901,7 +2932,7 @@ linking authorship sessions to real-world identities.<a href="#section-13.3-1" c
 anomaly threshold: +15 dB.<a href="#section-14.1-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-14.1-2.3">
-            <p id="section-14.1-2.3.1">CLC correlation: r &gt; 0.1 (reduced from r &gt; 0.2)<a href="#section-14.1-2.3.1" class="pilcrow">¶</a></p>
+            <p id="section-14.1-2.3.1">CLC metric: r &gt; 0.1 (reduced from r &gt; 0.2)<a href="#section-14.1-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-14.1-2.4">
             <p id="section-14.1-2.4.1">Error topology: Adjusted for gaze drift corrections, which
@@ -2923,7 +2954,7 @@ variance than keyboard <span>[<a href="#Karat1999" class="cite xref">Karat1999</
             <p id="section-14.2-2.1.1">SNR: -8 dB to +8 dB (wider range reflecting speech pauses <span>[<a href="#Shangguan2021" class="cite xref">Shangguan2021</a>]</span>)<a href="#section-14.2-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-14.2-2.2">
-            <p id="section-14.2-2.2.1">CLC correlation: r &gt; 0.1 (range 0.1 to 0.8)<a href="#section-14.2-2.2.1" class="pilcrow">¶</a></p>
+            <p id="section-14.2-2.2.1">CLC metric: r &gt; 0.1 (range 0.1 to 0.8)<a href="#section-14.2-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-14.2-2.3">
             <p id="section-14.2-2.3.1">Paste-to-keystroke ratio threshold: disabled (dictation
@@ -2960,7 +2991,7 @@ rather than applying a single distribution model.<a href="#section-14.3-2.1.1" c
 candidate selection pauses).<a href="#section-14.3-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-14.3-2.3">
-            <p id="section-14.3-2.3.1">CLC correlation: r &gt; 0.15 (candidate selection
+            <p id="section-14.3-2.3.1">CLC metric: r &gt; 0.15 (candidate selection
 timing adds variance uncorrelated with content
 complexity).<a href="#section-14.3-2.3.1" class="pilcrow">¶</a></p>
 </li>
@@ -3253,7 +3284,7 @@ this model.<a href="#section-16-2.1.1" class="pilcrow">¶</a></p>
         <li id="section-16-2.2">
           <p id="section-16-2.2.1"><em>Empirically-derived thresholds:</em> The forensic assessment
 thresholds specified in <a href="#forensic-assessment" class="auto internal xref">Section 5</a> (spectral
-flatness, CLC correlation coefficients, CoV bounds, entropy
+flatness, CLC metric coefficients, CoV bounds, entropy
 minimums) are calibrated from published behavioral research
 but have not been validated across the diversity of
 authoring workflows, languages, input methods, and
@@ -3364,7 +3395,7 @@ include a warning in the Attestation Result warnings field
         <h3 id="name-assistive-mode-abuse">
 <a href="#section-18.6" class="section-number selfRef">18.6. </a><a href="#name-assistive-mode-abuse" class="section-name selfRef">Assistive Mode Abuse</a>
         </h3>
-<p id="section-18.6-1">Adversaries may falsely claim assistive technology usage to bypass behavioral entropy checks. Verifiers <span class="bcp14">SHOULD</span> require consistent assistive mode declarations across sessions and <span class="bcp14">MAY</span> request additional out-of-band verification for mode changes. The WAR <span class="bcp14">SHOULD</span> indicate when assistive modes were active, as specified in the accessibility section above.<a href="#section-18.6-1" class="pilcrow">¶</a></p>
+<p id="section-18.6-1">Adversaries may falsely claim assistive technology usage to bypass behavioral entropy checks. Verifiers <span class="bcp14">SHOULD</span> require consistent assistive mode declarations across sessions and <span class="bcp14">MAY</span> request additional out-of-band verification for mode changes. The WAR <span class="bcp14">SHOULD</span> indicate when assistive modes were active, as specified in the accessibility section above. Assistive mode declarations at T1 and T2 attestation tiers are self-reported by the Attester and cannot be independently verified. Verifiers accepting assistive mode at these tiers accept an elevated forgery risk, as an adversary may claim assistive mode to bypass behavioral consistency checks. For T3 and T4, assistive technology usage <span class="bcp14">SHOULD</span> be corroborated by hardware attestation of the input device.<a href="#section-18.6-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3566,7 +3597,7 @@ include a warning in the Attestation Result warnings field
             <p id="appendix-A.2-1.2.1">SNR Analysis: Jitter exhibits characteristic biological noise patterns, not periodic or spectrally flat patterns.<a href="#appendix-A.2-1.2.1" class="pilcrow">¶</a></p>
 </li>
           <li id="appendix-A.2-1.3">
-            <p id="appendix-A.2-1.3.1">CLC Correlation: Semantic complexity correlates with timing (r &gt; 0.2, or r &gt; 0.1 for assistive mode).<a href="#appendix-A.2-1.3.1" class="pilcrow">¶</a></p>
+            <p id="appendix-A.2-1.3.1">CLC Metric: Semantic complexity correlates with timing (r &gt; 0.2, or r &gt; 0.1 for assistive mode).<a href="#appendix-A.2-1.3.1" class="pilcrow">¶</a></p>
 </li>
           <li id="appendix-A.2-1.4">
             <p id="appendix-A.2-1.4.1">Error Topology: Correction patterns consistent with human cognitive processing.<a href="#appendix-A.2-1.4.1" class="pilcrow">¶</a></p>
@@ -3795,8 +3826,13 @@ within 5% tolerance required.<a href="#appendix-B.4-1.2.1" class="pilcrow">¶</a
           <li class="normal" id="appendix-B.4-1.3">
             <p id="appendix-B.4-1.3.1">Entropy: 3.0 to 5.0 bits/sample; entropy trajectory
 standard deviation <span class="bcp14">MUST</span> exceed 0.1 bits across the
-session. A constant-entropy session is a strong indicator
-of synthetic generation.<a href="#appendix-B.4-1.3.1" class="pilcrow">¶</a></p>
+session. Entropy trajectory standard deviation is computed
+as: SD = standard_deviation([H_1, H_2, ..., H_n]) where
+H_i is the timing-entropy computed independently for
+checkpoint i. A constant-entropy session (SD &lt; 0.1 bits)
+indicates that behavioral entropy does not vary naturally
+across the session, which is characteristic of synthetic
+generation.<a href="#appendix-B.4-1.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-B.4-1.4">
             <p id="appendix-B.4-1.4.1">Entanglement: all T3 requirements; timing vector

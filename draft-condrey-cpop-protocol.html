@@ -2072,7 +2072,7 @@ mandate that evidence be produced or consumed.<a href="#section-5-3" class="pilc
 <a href="#name-evidence-packet-lifecycle" class="selfRef">Evidence Packet Lifecycle</a>
           </figcaption></figure>
 </div>
-<p id="section-7.2-3">Each checkpoint interval (default 30 seconds, <span class="bcp14">SHOULD</span> be between 10 and 120 seconds) produces one link in the hash chain. The SWF computation runs continuously during the interval, binding the author's behavioral entropy and the platform's physical state to the elapsed wall-clock time. At session end or rollover boundary, the Attester seals the chain into a .cpop Evidence Packet. For long-running authoring projects, the Session Continuation mechanism (<a href="#session-continuation" class="auto internal xref">Section 7.3</a>) allows a series of Evidence Packets to be cryptographically linked.<a href="#section-7.2-3" class="pilcrow">¶</a></p>
+<p id="section-7.2-3">Attesters <span class="bcp14">SHOULD</span> use checkpoint intervals between 10 and 120 seconds (default 30 seconds). Verifiers <span class="bcp14">MUST</span> accept Evidence with any positive checkpoint interval but <span class="bcp14">MAY</span> flag intervals outside this range in warnings. Each checkpoint interval produces one link in the hash chain. The SWF computation runs continuously during the interval, binding the author's behavioral entropy and the platform's physical state to the elapsed wall-clock time. At session end or rollover boundary, the Attester seals the chain into a .cpop Evidence Packet. For long-running authoring projects, the Session Continuation mechanism (<a href="#session-continuation" class="auto internal xref">Section 7.3</a>) allows a series of Evidence Packets to be cryptographically linked.<a href="#section-7.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="session-continuation">
@@ -2086,10 +2086,13 @@ practical memory and file-size limits. To support these
 workflows, the Attester <span class="bcp14">MAY</span> partition the authoring process
 into a series of Evidence Packets linked by the
 previous-packet-ref field (evidence-packet key 14).<a href="#section-7.3-1" class="pilcrow">¶</a></p>
-<p id="section-7.3-2">Attesters <span class="bcp14">SHOULD</span> roll over to a new Evidence Packet when the
-checkpoint count within the current packet approaches the
-implementation's resource limits. A maximum of 10,000
-checkpoints per Evidence Packet is <span class="bcp14">RECOMMENDED</span>.<a href="#section-7.3-2" class="pilcrow">¶</a></p>
+<p id="section-7.3-2">Attesters <span class="bcp14">MUST</span> begin a new Evidence Packet when the checkpoint
+count exceeds 1000 or the serialized packet size exceeds 10 MiB,
+whichever occurs first. Attesters <span class="bcp14">SHOULD</span> roll over to a new
+Evidence Packet when the checkpoint count within the current
+packet approaches these limits. A maximum of 10,000 checkpoints
+per Evidence Packet is <span class="bcp14">RECOMMENDED</span> as an upper bound for
+implementations that do not enforce the 1000-checkpoint trigger.<a href="#section-7.3-2" class="pilcrow">¶</a></p>
 <p id="section-7.3-3">The following rules govern session continuation:<a href="#section-7.3-3" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="section-7.3-4">
 <li id="section-7.3-4.1">
@@ -2158,13 +2161,23 @@ typing metrics (IKI histogram, coefficient of variation,
 Hurst exponent, cognitive pause frequency, duration, and
 keystroke count). Optionally, it includes a baseline-digest
 summarizing the author's historical behavioral profile and
-a COSE_Sign1 signature over the CBOR-encoded digest.<a href="#section-7.4-2" class="pilcrow">¶</a></p>
+a COSE_Sign1 signature over the CBOR-encoded digest. When
+baseline-verification is present, the identity-fingerprint
+within the baseline <span class="bcp14">MUST</span> match the Evidence Packet's
+identity-fingerprint. Verifiers <span class="bcp14">MUST</span> reject Evidence where
+these values differ.<a href="#section-7.4-2" class="pilcrow">¶</a></p>
 <p id="section-7.4-3">The baseline-digest aggregates per-session statistics using
 Welford's online algorithm (streaming-stats) for numerically
 stable incremental computation of mean and variance. The
 identity-fingerprint field <span class="bcp14">MUST</span> equal SHA-256 of the author's
 Ed25519 public key, binding the digest to the signing
-identity. The session-merkle-root field contains the root of
+identity. The identity-fingerprint <span class="bcp14">MUST</span> be computed as
+SHA-256(canonical-identity) where canonical-identity is the
+UTF-8 encoded author identifier used for signing. For
+COSE_Sign1-wrapped Evidence, this is the Subject field of the
+signing certificate or the COSE Key ID (kid). The exact
+identifier form <span class="bcp14">MUST</span> be consistent across all Evidence Packets
+from the same author. The session-merkle-root field contains the root of
 a Merkle Mountain Range over hashes of all sessions
 incorporated into the digest, enabling efficient append-only
 proof of session inclusion. Attesters that have not yet
@@ -2546,21 +2559,38 @@ of the Attesting Environment.<a href="#section-8.3.6-4" class="pilcrow">¶</a></
       <h2 id="name-attester-state-machine">
 <a href="#section-11" class="section-number selfRef">11. </a><a href="#name-attester-state-machine" class="section-name selfRef">Attester State Machine</a>
       </h2>
-<p id="section-11-1">The Attesting Environment (AE) <span class="bcp14">MUST</span> implement the following formal state machine:<a href="#section-11-1" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-11-2.1">
-          <p id="section-11-2.1.1">RECORDING: AE captures semantic events and physical telemetry into a hash-linked buffer. Events are appended and the block hash is updated.<a href="#section-11-2.1.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-11-2.2">
-          <p id="section-11-2.2.1">PENDING_CHECK: The current event block is frozen to prepare for a checkpoint. No new events are accepted into this block.<a href="#section-11-2.2.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-11-2.3">
-          <p id="section-11-2.3.1">CHECKPOINT: AE computes the SWF over the entangled seed (previous hash + current jitter + physical markers).<a href="#section-11-2.3.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-11-2.4">
-          <p id="section-11-2.4.1">SEALING: The Attester generates a final snapshot, signs the transcript root with the Attester's signing key (hardware-bound for T3/T4; software-managed for T1/T2), and prepares the transport container (.cpop).<a href="#section-11-2.4.1" class="pilcrow">¶</a></p>
-</li>
-      </ul>
+<p id="section-11-1">The Attesting Environment (AE) <span class="bcp14">MUST</span> implement the following formal state machine governing the Evidence Packet lifecycle:<a href="#section-11-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-ascii-art art-text artwork" id="section-11-2">
+<pre>
+          session start          checkpoint trigger
+  IDLE ─────────────────&gt; CAPTURING ─────────────────&gt; CHECKPOINTING
+   ^                          ^                             |
+   |    session end           |    checkpoint complete      |
+   +──── FINALIZING &lt;─────────+&lt;────────────────────────────+
+</pre><a href="#section-11-2" class="pilcrow">¶</a>
+</div>
+<span class="break"></span><dl class="dlParallel" id="section-11-3">
+        <dt id="section-11-3.1">IDLE:</dt>
+        <dd style="margin-left: 1.5em" id="section-11-3.2">
+          <p id="section-11-3.2.1">The AE is inactive. No Evidence collection is in progress. Transition to CAPTURING occurs on session start (author initiates evidence collection).<a href="#section-11-3.2.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-11-3.3">CAPTURING:</dt>
+        <dd style="margin-left: 1.5em" id="section-11-3.4">
+          <p id="section-11-3.4.1">The AE captures semantic events (keystrokes, edits, pauses) and physical telemetry into a hash-linked buffer. Events are appended and the block hash is updated. Transition to CHECKPOINTING occurs on checkpoint trigger (interval elapsed or rollover threshold reached). Transition to FINALIZING occurs on session end.<a href="#section-11-3.4.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-11-3.5">CHECKPOINTING:</dt>
+        <dd style="margin-left: 1.5em" id="section-11-3.6">
+          <p id="section-11-3.6.1">The current event block is frozen and the AE computes the SWF over the entangled seed (previous hash, current jitter, physical markers). No new events are accepted into the current block during SWF computation. On successful completion, the checkpoint is appended to the chain and the AE transitions back to CAPTURING. If checkpoint computation fails, the Attester <span class="bcp14">MUST</span> discard the failed checkpoint and return to CAPTURING from the last successful checkpoint state. The Attester <span class="bcp14">SHOULD</span> record the failure in the limitations field (evidence-packet key 8).<a href="#section-11-3.6.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-11-3.7">FINALIZING:</dt>
+        <dd style="margin-left: 1.5em" id="section-11-3.8">
+          <p id="section-11-3.8.1">The Attester generates a final checkpoint, signs the transcript root with the Attester's signing key (hardware-bound for T3/T4; software-managed for T1/T2), and prepares the transport container (.cpop). On completion, the AE transitions to IDLE. If finalization fails, the Attester <span class="bcp14">MUST</span> retry or emit a partial Evidence Packet with a "finalization-incomplete" limitation.<a href="#section-11-3.8.1" class="pilcrow">¶</a></p>
+</dd>
+      <dd class="break"></dd>
+</dl>
 </section>
 </div>
 <div id="evidence-tiers">
@@ -2790,14 +2820,19 @@ security-level.<a href="#section-13-3" class="pilcrow">¶</a></p>
         <h3 id="name-conformance-requirements">
 <a href="#section-14.1" class="section-number selfRef">14.1. </a><a href="#name-conformance-requirements" class="section-name selfRef">Conformance Requirements</a>
         </h3>
-<p id="section-14.1-1">A conforming Attester <span class="bcp14">MUST</span> implement at least the CORE profile. A conforming Verifier <span class="bcp14">MUST</span> be capable of validating all three profiles. Verifiers encountering unknown fields <span class="bcp14">MUST</span> ignore them and proceed with validation of known fields. Verifiers receiving an Evidence Packet with version greater than 1 <span class="bcp14">MUST</span> reject the packet unless they implement the corresponding protocol version.<a href="#section-14.1-1" class="pilcrow">¶</a></p>
+<p id="section-14.1-1">A conforming Attester <span class="bcp14">MUST</span> implement at least the CORE profile. A conforming Verifier <span class="bcp14">MUST</span> be capable of validating all three profiles. Verifiers <span class="bcp14">MUST</span> reject Evidence containing unrecognized integer keys in the range 0-99 (reserved for this specification). Verifiers <span class="bcp14">MUST</span> ignore unrecognized keys with values 100 or greater. Verifiers receiving an Evidence Packet with version greater than 1 <span class="bcp14">MUST</span> reject the packet unless they implement the corresponding protocol version.<a href="#section-14.1-1" class="pilcrow">¶</a></p>
 <p id="section-14.1-2">The profile-uri field in an Evidence Packet <span class="bcp14">MUST</span> be set to "urn:ietf:params:ccpop:profile:1.0" for Evidence conforming to this specification. This URI identifies the CPoP Evidence format and is distinct from the EAT profile URI "urn:ietf:params:rats:eat:profile:pop:1.0", which identifies CPoP Attestation Results (see <a href="#evidence-eat-relationship" class="auto internal xref">Section 6.4</a>).<a href="#section-14.1-2" class="pilcrow">¶</a></p>
 <p id="section-14.1-3">In the document-ref structure, byte-length is the length in bytes of the UTF-8 encoded document, and char-count is the number of Unicode scalar values (code points).<a href="#section-14.1-3" class="pilcrow">¶</a></p>
 <p id="section-14.1-4">If the Evidence Packet omits the attestation-tier field, the Verifier
 <span class="bcp14">MUST</span> assess the tier from the evidence content: T1 if no hardware
 attestation is present, T2 if platform attestation hooks are
 detected, T3 if TPM key binding is verified, T4 if anti-tamper
-evidence and PUF binding are confirmed.<a href="#section-14.1-4" class="pilcrow">¶</a></p>
+evidence and PUF binding are confirmed. When attestation-tier is
+absent, the Verifier <span class="bcp14">MUST</span> derive the tier from evidence content:
+T1 if no COSE_Sign1 wrapper is present, T2 if software-signed,
+T3/T4 based on HAT proof presence. The attestation-tier field is
+informational; Verifiers <span class="bcp14">MUST NOT</span> rely on it as authoritative
+when contradicted by the evidence content.<a href="#section-14.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3088,7 +3123,8 @@ the Unix epoch (1970-01-01T00:00:00Z). CBOR tag 1 is not used because
 RFC 8949 Section 3.4.2 defines it as epoch seconds; CPoP requires
 millisecond precision for IKI measurements and jitter-binding
 timestamps. pop-timestamp values <span class="bcp14">MUST</span> be positive (greater than zero).
-Verifiers <span class="bcp14">MUST</span> reject Evidence containing zero timestamps.<a href="#section-15-5" class="pilcrow">¶</a></p>
+A pop-timestamp value of zero is invalid. Verifiers <span class="bcp14">MUST</span> reject
+Evidence Packets containing any zero-valued timestamp.<a href="#section-15-5" class="pilcrow">¶</a></p>
 <p id="section-15-6">When hash-salt-mode is author-salted (1), the author generates a
 random salt of at least 16 bytes. The salt-commitment field <span class="bcp14">MUST</span>
 contain H(salt). To verify content binding, the author discloses
@@ -3161,7 +3197,11 @@ Evidence Packet's hash algorithm per the consistency requirement
 above.<a href="#section-15-16" class="pilcrow">¶</a></p>
 <p id="section-15-17">The mechanism by which tool providers generate and sign receipts,
 including key discovery and trust establishment, will be specified
-in a companion document.<a href="#section-15-17" class="pilcrow">¶</a></p>
+in a companion document. Until a companion specification defines
+tool provider key discovery, Verifiers <span class="bcp14">MUST</span> treat tool-receipts
+with unresolvable tool-id URIs as unverified. Unverified
+tool-receipts <span class="bcp14">MUST NOT</span> contribute to an authentic verdict but <span class="bcp14">MAY</span>
+be included in the Evidence Packet for informational purposes.<a href="#section-15-17" class="pilcrow">¶</a></p>
 <p id="section-15-18">Extension keys in evidence-packet and checkpoint structures <span class="bcp14">MUST</span>
 use integer values 100 or greater. Keys 0-99 are reserved for use
 by this specification and future revisions.<a href="#section-15-18" class="pilcrow">¶</a></p>
@@ -3205,8 +3245,8 @@ position samples at minimum 100ms intervals. The
 revision-depths array <span class="bcp14">MUST</span> record the number of prior edits
 at each cursor position at the same sample rate. The
 pause-durations array <span class="bcp14">MUST</span> record all inter-keystroke intervals
-exceeding 500ms. Arrays <span class="bcp14">MUST</span> be truncated to the most recent
-10,000 samples when longer.<a href="#section-15.1-4" class="pilcrow">¶</a></p>
+exceeding 500ms. Arrays <span class="bcp14">MUST</span> be truncated to the 10,000 most
+recent samples measured from the current checkpoint boundary.<a href="#section-15.1-4" class="pilcrow">¶</a></p>
 <p id="section-15.1-5">When the edit-graph-hash is present, it is entangled into the
 SWF seed derivation (<a href="#swf-seed-derivation" class="auto internal xref">Section 16.4</a>).<a href="#section-15.1-5" class="pilcrow">¶</a></p>
 </section>
@@ -3683,10 +3723,11 @@ previous checkpoint's SWF has completed.<a href="#section-16.4-10" class="pilcro
 the nonce <span class="bcp14">MUST</span> be inserted into the seed derivation after
 prev-swf-output (for Mode 21) or after prev-hash (for Modes
 10/20), before any behavioral data. When both verifier-nonce and
-beacon-anchor are used, the verifier-nonce <span class="bcp14">MUST</span> precede the
-beacon value in the seed derivation. When edit-graph-hash is
-present, it <span class="bcp14">MUST</span> be the final term in the seed derivation,
-after all behavioral data and any beacon-anchor value.<a href="#section-16.4-11" class="pilcrow">¶</a></p>
+beacon-anchor are present in the seed, the concatenation order
+<span class="bcp14">MUST</span> be: prev-hash || verifier-nonce || beacon-anchor ||
+jitter-sample. When edit-graph-hash is present, it <span class="bcp14">MUST</span> be the
+final term in the seed derivation, after all behavioral data
+and any beacon-anchor value.<a href="#section-16.4-11" class="pilcrow">¶</a></p>
 <p id="section-16.4-12">For the first checkpoint (sequence = 1), all modes use:<a href="#section-16.4-12" class="pilcrow">¶</a></p>
 <div class="lang-pseudocode sourcecode" id="section-16.4-13">
 <pre>
@@ -4034,9 +4075,12 @@ beacon-anchor = {
 </div>
 <p id="section-16.10-7">The Verifier <span class="bcp14">MUST</span> independently fetch the beacon value for the
 declared round from the beacon-source and verify it matches
-beacon-anchor.beacon-value. The Verifier <span class="bcp14">MUST</span> verify that the
-beacon round is consistent with the checkpoint timestamp plus the
-protocol-defined delay.<a href="#section-16.10-7" class="pilcrow">¶</a></p>
+beacon-anchor.beacon-value. Verifiers <span class="bcp14">MUST</span> apply a timeout of no
+more than 30 seconds when fetching beacon values. If the beacon
+service is unavailable, the Verifier <span class="bcp14">MUST</span> treat the Evidence as
+non-beacon-anchored and proceed with remaining verification steps.
+The Verifier <span class="bcp14">MUST</span> verify that the beacon round is consistent with
+the checkpoint timestamp plus the protocol-defined delay.<a href="#section-16.10-7" class="pilcrow">¶</a></p>
 <p id="section-16.10-8">This mechanism transforms T1 temporal ordering from self-reported
 timestamps to externally verifiable time commitments <span>[<a href="#HaberStornetta1991" class="cite xref">HaberStornetta1991</a>]</span>. The beacon
 value is not predictable at checkpoint creation time, preventing
@@ -4139,7 +4183,7 @@ the beacon provides publicly verifiable temporal ordering.<a href="#section-16.1
         <h3 id="name-security-bound">
 <a href="#section-16.12" class="section-number selfRef">16.12. </a><a href="#name-security-bound" class="section-name selfRef">Security Bound</a>
         </h3>
-<p id="section-16.12-1">An adversary who skips fraction f of steps will be detected with probability 1-(1-f)^k where k is the number of sampled proofs. With k=20 and f=0.1, detection probability exceeds 0.878. With k=100 and f=0.05, detection probability exceeds 0.994.<a href="#section-16.12-1" class="pilcrow">¶</a></p>
+<p id="section-16.12-1">An adversary who skips fraction f of steps will be detected with probability 1-(1-f)^k where k is the number of sampled proofs. With k=20 and f=0.1, detection probability exceeds 0.878. With k=100 and f=0.05, detection probability exceeds 0.994. This detection probability applies independently to each checkpoint. For a session of N checkpoints, the probability that at least one forged checkpoint is detected is 1 - (1 - p_detect)^N.<a href="#section-16.12-1" class="pilcrow">¶</a></p>
 <p id="section-16.12-2">This bound holds under the random oracle model for the selected
 hash function H. The Attester commits to the Merkle root before
 sample positions are derived via the Fiat-Shamir transform. Finding
@@ -4744,6 +4788,7 @@ to enable interoperable extension.<a href="#section-18.6-2" class="pilcrow">¶</
 <a href="#section-19" class="section-number selfRef">19. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
       </h2>
 <p id="section-19-1">This section provides security analysis following <span>[<a href="#RFC3552" class="cite xref">RFC3552</a>]</span> guidelines. The threat model is defined in <a href="#threat-model" class="auto internal xref">Section 8</a> with the adversarial Attester as the primary threat actor. Detailed forensic security analysis is provided in <span>[<a href="#CPoP-Appraisal" class="cite xref">CPoP-Appraisal</a>]</span>.<a href="#section-19-1" class="pilcrow">¶</a></p>
+<p id="section-19-2">The CPoP adversary model assumes an attacker with: (a) polynomial-time computation, (b) access to the same SWF parameters as honest Attesters, (c) ability to generate arbitrary behavioral telemetry, but (d) inability to violate the hardness assumptions of the selected hash function or memory-hard function. The attacker's goal is to produce Evidence that passes Verifier appraisal without genuine human cognitive involvement in content creation.<a href="#section-19-2" class="pilcrow">¶</a></p>
 <div id="sec-layer-model">
 <section id="section-19.1">
         <h3 id="name-security-layer-model">
@@ -5124,8 +5169,9 @@ older Evidence Packets, the Attester <span class="bcp14">SHOULD</span> publish a
 history document (format out of scope) linking retired
 public keys to their validity periods. Verifiers <span class="bcp14">MUST</span>
 accept Evidence signed with a retired key if the Evidence
-Packet's created timestamp falls within the key's validity
-period.<a href="#section-19.13-2.3.1" class="pilcrow">¶</a></p>
+creation timestamp falls within the key's validity period.
+Verifiers <span class="bcp14">SHOULD</span> maintain signing key history for at least
+365 days.<a href="#section-19.13-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-19.13-2.4">
             <p id="section-19.13-2.4.1"><em>Compromise response:</em> If a signing key is
@@ -5175,7 +5221,7 @@ the scope of this specification.<a href="#section-19.13-3" class="pilcrow">¶</a
             <p id="section-20.2-2.3.1">Use jitter data solely for authenticity verification<a href="#section-20.2-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-20.2-3">Attesters <span class="bcp14">SHOULD</span> quantize jitter values to reduce fingerprinting precision while preserving statistical validity. A minimum quantization of 5ms is <span class="bcp14">RECOMMENDED</span>.<a href="#section-20.2-3" class="pilcrow">¶</a></p>
+<p id="section-20.2-3">Attesters <span class="bcp14">MUST</span> apply a minimum quantization step of 5 milliseconds to all inter-keystroke interval values before encoding in jitter-binding. Finer resolution <span class="bcp14">MUST NOT</span> be used without explicit operator configuration and documented consent.<a href="#section-20.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="priv-physical-leakage">
