@@ -55,7 +55,7 @@ const-oid = { version = "0.9", features = ["db"] }
 signature = "2.2"
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 tempfile = "3"
 
 [features]
