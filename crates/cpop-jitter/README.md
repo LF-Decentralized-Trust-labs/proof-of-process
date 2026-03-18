@@ -2,11 +2,7 @@
 
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/LF-Decentralized-Trust-labs/proof-of-process/main/assets/branding/production/white/png/cpop-jitter.png" width="360">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/LF-Decentralized-Trust-labs/proof-of-process/main/assets/branding/production/dark/png/cpop-jitter.png" width="360">
-  <img alt="cpop-jitter" src="https://raw.githubusercontent.com/LF-Decentralized-Trust-labs/proof-of-process/main/assets/branding/production/dark/png/cpop-jitter.png" width="360">
-</picture>
+<img alt="cpop-jitter" src="https://raw.githubusercontent.com/LF-Decentralized-Trust-labs/proof-of-process/main/assets/branding/production/dark/png/cpop-jitter.png" width="360">
 
 ### Timing entropy primitive for human process attestation
 
