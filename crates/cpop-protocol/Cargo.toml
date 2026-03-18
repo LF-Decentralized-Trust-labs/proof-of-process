@@ -50,7 +50,7 @@ cpop-jitter = { path = "../cpop-jitter", version = "0.2.0" }
 # Identity & X.509
 x509-cert = { version = "0.2.5", features = ["builder", "pem"] }
 spki = { version = "0.7", features = ["std", "pem"] }
-der = { version = "0.7", features = ["alloc", "derive"] }
+der = { version = "0.8", features = ["alloc", "derive"] }
 const-oid = { version = "0.9", features = ["db"] }
 signature = "2.2"
 
