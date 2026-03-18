@@ -15,5 +15,9 @@ pub mod rfc;
 pub mod wasm;
 
 pub use crate::error::{Error, Result};
+pub use codec::{decode_evidence, encode_evidence};
+pub use crypto::{hash_sha256, EvidenceSigner};
+pub use evidence::{Builder, Verifier};
+pub use rfc::{AttestationTier, DocumentRef, EvidencePacket, HashValue, Verdict};
 
 pub const PROTOCOL_VERSION: u32 = 1;

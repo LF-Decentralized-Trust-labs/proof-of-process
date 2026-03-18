@@ -33,7 +33,6 @@ impl PhysJitter {
         }
     }
 
-    ///
     /// # Panics
     /// Panics if `range` is 0.
     pub fn with_jitter_range(mut self, jmin: u32, range: u32) -> Self {
