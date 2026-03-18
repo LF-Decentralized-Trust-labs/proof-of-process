@@ -6,25 +6,23 @@
 //! per C2PA 2.2 specification (2025-05-01). The manifest uses JUMBF
 //! (ISO 19566-5) box format with COSE_Sign1 signatures.
 
-use crate::crypto::CPoPSigner;
+use crate::crypto::EvidenceSigner;
 use crate::error::{Error, Result};
 use crate::rfc::EvidencePacket;
-use coset::{CborSerializable, CoseSign1Builder, HeaderBuilder};
+#[cfg(test)]
+use coset::CborSerializable;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-/// Custom CPoP assertion embedded in C2PA manifests.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CPoPAssertion {
+pub struct ProcessAssertion {
     pub label: String,
     pub version: u32,
     pub evidence_id: String,
-    /// SHA-256 digest of the original evidence packet bytes.
     pub evidence_hash: String,
     pub jitter_seals: Vec<JitterSeal>,
 }
 
-/// Per-checkpoint jitter seal entry within a CPoP assertion.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JitterSeal {
     pub sequence: u64,
@@ -32,8 +30,7 @@ pub struct JitterSeal {
     pub seal_hash: String,
 }
 
-impl CPoPAssertion {
-    /// Build a CPoP assertion from an evidence packet and its raw CBOR bytes.
+impl ProcessAssertion {
     pub fn from_evidence(packet: &EvidencePacket, original_bytes: &[u8]) -> Self {
         let hash = Sha256::digest(original_bytes);
 
@@ -83,7 +80,6 @@ pub enum SoftwareAgent {
     Info(ClaimGeneratorInfo),
 }
 
-/// Optional parameters for a C2PA action.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionParameters {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -207,11 +203,8 @@ const JUMBF_JSON_UUID: [u8; 16] = [
     0x00, 0x11, 0x00, 0x10, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71,
 ];
 
-/// JUMBF label for the CPoP evidence assertion.
 pub const ASSERTION_LABEL_CPOP: &str = "org.cpop.evidence";
-/// JUMBF label for the C2PA actions assertion.
 pub const ASSERTION_LABEL_ACTIONS: &str = "c2pa.actions";
-/// JUMBF label for the C2PA hard-binding hash assertion.
 pub const ASSERTION_LABEL_HASH_DATA: &str = "c2pa.hash.data";
 
 const CLAIM_GENERATOR: &str = concat!(
@@ -287,7 +280,6 @@ impl JumbfWriter {
     }
 }
 
-/// Builds a C2PA 2.2 sidecar manifest from CPoP evidence.
 pub struct C2paManifestBuilder {
     document_hash: [u8; 32],
     document_filename: Option<String>,
@@ -298,7 +290,6 @@ pub struct C2paManifestBuilder {
 }
 
 impl C2paManifestBuilder {
-    /// Create a builder from a decoded evidence packet, its raw bytes, and the document hash.
     pub fn new(
         evidence_packet: EvidencePacket,
         evidence_bytes: Vec<u8>,
@@ -315,7 +306,6 @@ impl C2paManifestBuilder {
         }
     }
 
-    /// Set the document filename for the hard-binding assertion.
     pub fn document_filename(mut self, name: impl Into<String>) -> Self {
         self.document_filename = Some(name.into());
         self
@@ -327,16 +317,14 @@ impl C2paManifestBuilder {
         self
     }
 
-    /// Build and encode the manifest as a complete JUMBF binary sidecar.
-    pub fn build_jumbf(self, signer: &dyn CPoPSigner) -> Result<Vec<u8>> {
+    pub fn build_jumbf(self, signer: &dyn EvidenceSigner) -> Result<Vec<u8>> {
         let manifest = self.build_manifest(signer)?;
         encode_jumbf(&manifest)
     }
 
-    /// Build the manifest structure with assertions, claim, and COSE signature.
-    pub fn build_manifest(self, signer: &dyn CPoPSigner) -> Result<C2paManifest> {
-        let pop_assertion =
-            CPoPAssertion::from_evidence(&self.evidence_packet, &self.evidence_bytes);
+    pub fn build_manifest(self, signer: &dyn EvidenceSigner) -> Result<C2paManifest> {
+        let cpop_assertion =
+            ProcessAssertion::from_evidence(&self.evidence_packet, &self.evidence_bytes);
 
         let now = chrono::Utc::now().to_rfc3339();
 
@@ -370,12 +358,12 @@ impl C2paManifestBuilder {
         let hash_data_box =
             build_assertion_jumbf_cbor(ASSERTION_LABEL_HASH_DATA, &hash_data_assertion)?;
         let actions_box = build_assertion_jumbf_cbor(ASSERTION_LABEL_ACTIONS, &actions_assertion)?;
-        let pop_box = build_assertion_jumbf_json(ASSERTION_LABEL_CPOP, &pop_assertion)?;
+        let cpop_box = build_assertion_jumbf_json(ASSERTION_LABEL_CPOP, &cpop_assertion)?;
 
         // §8.4.2.3: hash superbox contents, skipping 8-byte jumb header
         let hash_data_hash = Sha256::digest(&hash_data_box[8..]);
         let actions_hash = Sha256::digest(&actions_box[8..]);
-        let pop_hash = Sha256::digest(&pop_box[8..]);
+        let cpop_hash = Sha256::digest(&cpop_box[8..]);
 
         let manifest_label = &self.manifest_label;
 
@@ -400,7 +388,7 @@ impl C2paManifestBuilder {
                 url: format!(
                     "self#jumbf=/c2pa/{manifest_label}/c2pa.assertions/{ASSERTION_LABEL_CPOP}"
                 ),
-                hash: pop_hash.to_vec(),
+                hash: cpop_hash.to_vec(),
                 alg: Some("sha256".to_string()),
             },
         ];
@@ -431,49 +419,20 @@ impl C2paManifestBuilder {
         Ok(C2paManifest {
             claim,
             manifest_label: self.manifest_label.clone(),
-            assertion_boxes: vec![hash_data_box, actions_box, pop_box],
+            assertion_boxes: vec![hash_data_box, actions_box, cpop_box],
             signature,
         })
     }
 }
 
 /// §13.2: COSE_Sign1 with public key in unprotected header.
-fn sign_c2pa_claim(claim_cbor: &[u8], signer: &dyn CPoPSigner) -> Result<Vec<u8>> {
-    let protected = HeaderBuilder::new().algorithm(signer.algorithm()).build();
-
+fn sign_c2pa_claim(claim_cbor: &[u8], signer: &dyn EvidenceSigner) -> Result<Vec<u8>> {
     let mut unprotected = coset::Header::default();
     unprotected.rest.push((
         coset::Label::Int(COSE_HEADER_LABEL_COSE_KEY),
         ciborium::Value::Bytes(signer.public_key()),
     ));
-
-    let mut sign_error: Option<Error> = None;
-    let sign1 = CoseSign1Builder::new()
-        .protected(protected)
-        .unprotected(unprotected)
-        .payload(claim_cbor.to_vec())
-        .create_signature(&[], |sig_data| match signer.sign(sig_data) {
-            Ok(sig) => sig,
-            Err(e) => {
-                sign_error = Some(e);
-                Vec::new()
-            }
-        })
-        .build();
-
-    if let Some(e) = sign_error {
-        return Err(e);
-    }
-
-    if sign1.signature.is_empty() {
-        return Err(Error::Crypto(
-            "COSE signing produced empty signature".to_string(),
-        ));
-    }
-
-    sign1
-        .to_vec()
-        .map_err(|e| Error::Crypto(format!("COSE encoding error: {e}")))
+    crate::crypto::cose_sign1(claim_cbor, signer, unprotected)
 }
 
 fn build_assertion_jumbf_json<T: Serialize>(label: &str, value: &T) -> Result<Vec<u8>> {
@@ -511,7 +470,6 @@ fn ciborium_to_vec<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-/// Encode a C2PA manifest as JUMBF binary (`.c2pa` sidecar).
 pub fn encode_jumbf(manifest: &C2paManifest) -> Result<Vec<u8>> {
     let mut w = JumbfWriter::new();
 
@@ -546,7 +504,6 @@ pub fn encode_jumbf(manifest: &C2paManifest) -> Result<Vec<u8>> {
     Ok(w.finish())
 }
 
-/// Structural validation result for a C2PA manifest.
 #[derive(Debug)]
 pub struct ValidationResult {
     pub errors: Vec<String>,
@@ -554,7 +511,6 @@ pub struct ValidationResult {
 }
 
 impl ValidationResult {
-    /// Return true if no validation errors were found.
     pub fn is_valid(&self) -> bool {
         self.errors.is_empty()
     }
@@ -671,7 +627,6 @@ pub fn validate_manifest(manifest: &C2paManifest) -> ValidationResult {
     ValidationResult { errors, warnings }
 }
 
-/// Verify structural integrity of a C2PA JUMBF sidecar.
 pub fn verify_jumbf_structure(data: &[u8]) -> Result<JumbfInfo> {
     if data.len() < 8 {
         return Err(Error::Validation("JUMBF data too short".to_string()));
@@ -728,7 +683,6 @@ pub fn verify_jumbf_structure(data: &[u8]) -> Result<JumbfInfo> {
     })
 }
 
-/// Info from JUMBF structural validation.
 #[derive(Debug)]
 pub struct JumbfInfo {
     pub total_size: usize,
@@ -806,10 +760,10 @@ mod tests {
     }
 
     #[test]
-    fn pop_assertion_from_evidence() {
+    fn cpop_assertion_from_evidence() {
         let packet = test_evidence_packet();
         let evidence_bytes = b"fake evidence cbor";
-        let assertion = CPoPAssertion::from_evidence(&packet, evidence_bytes);
+        let assertion = ProcessAssertion::from_evidence(&packet, evidence_bytes);
 
         assert_eq!(assertion.label, ASSERTION_LABEL_CPOP);
         assert_eq!(assertion.version, 1);

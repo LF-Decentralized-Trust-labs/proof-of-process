@@ -3,7 +3,6 @@
 use crate::forensics::transcription;
 use serde::{Deserialize, Serialize};
 
-/// Five-level forensic verdict from timing and causality analysis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ForensicVerdict {
     /// High entropy, valid causality, non-linear composition.
@@ -19,7 +18,6 @@ pub enum ForensicVerdict {
 }
 
 impl ForensicVerdict {
-    /// Return the verdict as a stable string identifier (e.g., "V1_VerifiedHuman").
     pub fn as_str(&self) -> &'static str {
         match self {
             ForensicVerdict::V1VerifiedHuman => "V1_VerifiedHuman",
@@ -30,7 +28,6 @@ impl ForensicVerdict {
         }
     }
 
-    /// Return true if the verdict indicates verified human authorship (V1 or V2).
     pub fn is_verified(&self) -> bool {
         matches!(
             self,
@@ -39,7 +36,6 @@ impl ForensicVerdict {
     }
 }
 
-/// Complete forensic analysis result with verdict, metrics, and explanation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForensicAnalysis {
     pub verdict: ForensicVerdict,
@@ -81,7 +77,6 @@ impl ForensicAnalysis {
     }
 }
 
-/// Analyze checkpoint timing intervals for human-vs-synthetic authorship signals.
 pub struct ForensicsEngine {
     pub inter_checkpoint_intervals: Vec<f64>,
     pub causality_chain_valid: bool,
@@ -89,7 +84,6 @@ pub struct ForensicsEngine {
 }
 
 impl ForensicsEngine {
-    /// Build an engine from ordered timestamps and a pre-validated causality flag.
     pub fn from_timestamps(timestamps: &[u64], causality_valid: bool) -> Self {
         let intervals: Vec<f64> = timestamps
             .windows(2)
@@ -103,13 +97,11 @@ impl ForensicsEngine {
         }
     }
 
-    /// Attach transcription detection data for linearity analysis.
     pub fn with_transcription_data(mut self, data: transcription::TranscriptionData) -> Self {
         self.transcription_data = Some(data);
         self
     }
 
-    /// Run full forensic analysis and return a verdict with metrics.
     pub fn analyze(&self) -> ForensicAnalysis {
         let n = self.inter_checkpoint_intervals.len() + 1;
         let dur = self.inter_checkpoint_intervals.iter().sum::<f64>().max(0.0) as u64;
@@ -290,8 +282,9 @@ impl ForensicsEngine {
             return 0.5;
         }
 
-        let mut log_n_values = Vec::new();
-        let mut log_rs_values = Vec::new();
+        let mut log_n_values = Vec::with_capacity(8);
+        let mut log_rs_values = Vec::with_capacity(8);
+        let mut cumdev = Vec::new();
 
         let mut block_size = 4;
         while block_size <= n / 2 {
@@ -302,7 +295,8 @@ impl ForensicsEngine {
                 let block = &data[b * block_size..(b + 1) * block_size];
                 let mean = block.iter().sum::<f64>() / block_size as f64;
 
-                let mut cumdev = Vec::with_capacity(block_size);
+                cumdev.clear();
+                cumdev.reserve(block_size);
                 let mut running = 0.0;
                 for &val in block {
                     running += val - mean;

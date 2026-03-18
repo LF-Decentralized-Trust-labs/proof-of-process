@@ -25,9 +25,9 @@ const ED25519_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.101.112"
 
 /// Wrapper to implement x509-cert builder traits for VerifyingKey.
 #[derive(Clone, Debug)]
-pub struct CPoPVerifyingKey(pub VerifyingKey);
+pub struct X509VerifyingKey(pub VerifyingKey);
 
-impl EncodePublicKey for CPoPVerifyingKey {
+impl EncodePublicKey for X509VerifyingKey {
     fn to_public_key_der(&self) -> spki::Result<spki::der::Document> {
         let spki = SubjectPublicKeyInfoOwned {
             algorithm: AlgorithmIdentifierOwned {
@@ -42,16 +42,16 @@ impl EncodePublicKey for CPoPVerifyingKey {
 }
 
 /// Wrapper to implement x509-cert builder traits for SigningKey.
-pub struct CPoPSigner(pub SigningKey);
+pub struct X509Signer(pub SigningKey);
 
-impl Keypair for CPoPSigner {
-    type VerifyingKey = CPoPVerifyingKey;
+impl Keypair for X509Signer {
+    type VerifyingKey = X509VerifyingKey;
     fn verifying_key(&self) -> Self::VerifyingKey {
-        CPoPVerifyingKey(self.0.verifying_key())
+        X509VerifyingKey(self.0.verifying_key())
     }
 }
 
-impl DynSignatureAlgorithmIdentifier for CPoPSigner {
+impl DynSignatureAlgorithmIdentifier for X509Signer {
     fn signature_algorithm_identifier(&self) -> spki::Result<AlgorithmIdentifierOwned> {
         Ok(AlgorithmIdentifierOwned {
             oid: ED25519_OID,
@@ -62,37 +62,37 @@ impl DynSignatureAlgorithmIdentifier for CPoPSigner {
 
 /// Newtype wrapper over Ed25519 signature for `SignatureBitStringEncoding` (orphan rule).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CPoPSignature(pub ed25519_dalek::Signature);
+pub struct X509Signature(pub ed25519_dalek::Signature);
 
-impl signature::SignatureEncoding for CPoPSignature {
+impl signature::SignatureEncoding for X509Signature {
     type Repr = [u8; 64];
     fn to_bytes(&self) -> Self::Repr {
         self.0.to_bytes()
     }
 }
 
-impl TryFrom<&[u8]> for CPoPSignature {
+impl TryFrom<&[u8]> for X509Signature {
     type Error = signature::Error;
     fn try_from(bytes: &[u8]) -> std::result::Result<Self, Self::Error> {
         ed25519_dalek::Signature::from_slice(bytes)
-            .map(CPoPSignature)
+            .map(X509Signature)
             .map_err(|_| signature::Error::new())
     }
 }
 
-impl From<CPoPSignature> for [u8; 64] {
-    fn from(sig: CPoPSignature) -> Self {
+impl From<X509Signature> for [u8; 64] {
+    fn from(sig: X509Signature) -> Self {
         sig.0.to_bytes()
     }
 }
 
-impl Signer<CPoPSignature> for CPoPSigner {
-    fn try_sign(&self, msg: &[u8]) -> std::result::Result<CPoPSignature, signature::Error> {
-        Ok(CPoPSignature(self.0.sign(msg)))
+impl Signer<X509Signature> for X509Signer {
+    fn try_sign(&self, msg: &[u8]) -> std::result::Result<X509Signature, signature::Error> {
+        Ok(X509Signature(self.0.sign(msg)))
     }
 }
 
-impl SignatureBitStringEncoding for CPoPSignature {
+impl SignatureBitStringEncoding for X509Signature {
     fn to_bitstring(&self) -> std::result::Result<BitString, x509_cert::der::Error> {
         BitString::from_bytes(&self.0.to_bytes())
     }
@@ -100,13 +100,13 @@ impl SignatureBitStringEncoding for CPoPSignature {
 
 /// X.509 extension for CPoP capability (OID 1.3.6.1.4.1.54066.1.1).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CPoPCapability(pub OctetString);
+pub struct Capability(pub OctetString);
 
-impl AssociatedOid for CPoPCapability {
+impl AssociatedOid for Capability {
     const OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.4.1.54066.1.1");
 }
 
-impl Encode for CPoPCapability {
+impl Encode for Capability {
     fn encoded_len(&self) -> x509_cert::der::Result<x509_cert::der::Length> {
         self.0.encoded_len()
     }
@@ -115,20 +115,18 @@ impl Encode for CPoPCapability {
     }
 }
 
-impl FixedTag for CPoPCapability {
+impl FixedTag for Capability {
     const TAG: Tag = Tag::OctetString;
 }
 
-impl AsExtension for CPoPCapability {
+impl AsExtension for Capability {
     fn critical(&self, _: &x509_cert::name::RdnSequence, _: &[Extension]) -> bool {
         false
     }
 }
 
-/// Request payload for enrolling a new CPoP identity with a verifier.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnrollmentRequest {
-    /// User-chosen identifier.
     pub user_id: String,
     /// COSE-encoded Ed25519 public key bytes.
     pub public_key_cose: Vec<u8>,
@@ -136,29 +134,25 @@ pub struct EnrollmentRequest {
     pub hardware_attestation: Vec<u8>,
 }
 
-/// Manage CPoP signing identity: key generation, CSR creation, and enrollment.
 pub struct IdentityManager {
-    signer: CPoPSigner,
+    signer: X509Signer,
 }
 
 impl IdentityManager {
-    /// Generate a new random Ed25519 signing identity.
     pub fn generate() -> Self {
         let mut bytes = Zeroizing::new([0u8; 32]);
         OsRng.fill_bytes(bytes.as_mut());
         Self {
-            signer: CPoPSigner(SigningKey::from_bytes(&bytes)),
+            signer: X509Signer(SigningKey::from_bytes(&bytes)),
         }
     }
 
-    /// Restore an identity from a 32-byte Ed25519 secret key.
     pub fn from_secret_key(bytes: &[u8; 32]) -> Self {
         Self {
-            signer: CPoPSigner(SigningKey::from_bytes(bytes)),
+            signer: X509Signer(SigningKey::from_bytes(bytes)),
         }
     }
 
-    /// Return a reference to the underlying Ed25519 signing key.
     pub fn signing_key(&self) -> &SigningKey {
         &self.signer.0
     }
@@ -182,13 +176,13 @@ impl IdentityManager {
             .map_err(|e| Error::Crypto(format!("Failed to add SKI extension: {}", e)))?;
 
         let pop_cap =
-            CPoPCapability(OctetString::new(vec![0x01]).map_err(|e| Error::Crypto(e.to_string()))?);
+            Capability(OctetString::new(vec![0x01]).map_err(|e| Error::Crypto(e.to_string()))?);
         builder
             .add_extension(&pop_cap)
             .map_err(|e| Error::Crypto(format!("Failed to add CPoP extension: {}", e)))?;
 
         let csr = builder
-            .build::<CPoPSignature>()
+            .build::<X509Signature>()
             .map_err(|e| Error::Crypto(format!("CSR signing error: {}", e)))?;
 
         csr.to_der()

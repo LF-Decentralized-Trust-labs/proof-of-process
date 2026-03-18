@@ -28,24 +28,15 @@ const MIN_HUMAN_CONFIDENCE: f64 = 0.5;
 const REPEATING_PATTERN_THRESHOLD: f64 = 0.8;
 const MIN_PATTERN_CHECKS: usize = 2;
 
-/// Statistical model of human typing patterns for automation detection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HumanModel {
-    /// Minimum expected inter-key interval in microseconds.
     pub iki_min_us: u32,
-    /// Maximum expected inter-key interval in microseconds.
     pub iki_max_us: u32,
-    /// Mean inter-key interval in microseconds (Aalto 136M baseline).
     pub iki_mean_us: u32,
-    /// Standard deviation of inter-key intervals in microseconds.
     pub iki_std_us: u32,
-    /// Minimum expected jitter value in microseconds.
     pub jitter_min_us: u32,
-    /// Maximum expected jitter value in microseconds.
     pub jitter_max_us: u32,
-    /// Minimum sequence length required for validation.
     pub min_sequence_length: usize,
-    /// Maximum fraction of consecutive identical values before flagging.
     pub max_perfect_ratio: f64,
 }
 
@@ -64,57 +55,39 @@ impl Default for HumanModel {
     }
 }
 
-/// Result of validating a jitter or IKI sequence against the human model.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationResult {
-    /// True if no anomalies detected and confidence exceeds threshold.
     pub is_human: bool,
-    /// Confidence score from 0.0 (automated) to 1.0 (human).
     pub confidence: f64,
-    /// Detected anomalies that reduced confidence.
     pub anomalies: Vec<Anomaly>,
-    /// Descriptive statistics of the input sequence.
     pub stats: SequenceStats,
 }
 
-/// Single detected anomaly in a jitter or IKI sequence.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Anomaly {
-    /// Classification of the anomaly.
     pub kind: AnomalyKind,
-    /// Index of the first occurrence in the sequence.
     pub position: usize,
-    /// Human-readable description of the anomaly.
     pub detail: String,
 }
 
-/// Classification of typing anomalies that suggest automation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AnomalyKind {
-    /// Too many consecutive identical timing values.
     PerfectTiming,
-    /// Values outside the expected human range.
     OutOfRange,
     /// Sequence too short for meaningful analysis.
-    DistributionMismatch,
+    InsufficientData,
     /// Detected a short repeating pattern (length 2-5).
     RepeatingPattern,
-    /// Standard deviation below the minimum threshold.
     LowVariance,
 }
 
-/// Descriptive statistics for a sequence of timing values.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SequenceStats {
-    /// Number of values in the sequence.
     pub count: usize,
-    /// Arithmetic mean.
     pub mean: f64,
     /// Population standard deviation.
     pub std_dev: f64,
-    /// Minimum value.
     pub min: Jitter,
-    /// Maximum value.
     pub max: Jitter,
 }
 
@@ -158,19 +131,16 @@ impl HumanModel {
         serde_json::from_str(BASELINE).expect("embedded baseline is valid")
     }
 
-    /// Deserialize a model from JSON.
     #[cfg(feature = "std")]
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json)
     }
 
-    /// Serialize the model to pretty-printed JSON.
     #[cfg(feature = "std")]
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
 
-    /// Validate a sequence of jitter values against human typing patterns.
     pub fn validate(&self, jitters: &[Jitter]) -> ValidationResult {
         let oor = out_of_range_anomaly(
             jitters,
@@ -209,7 +179,7 @@ impl HumanModel {
                 is_human: false,
                 confidence: 0.0,
                 anomalies: vec![Anomaly {
-                    kind: AnomalyKind::DistributionMismatch,
+                    kind: AnomalyKind::InsufficientData,
                     position: 0,
                     detail: format!(
                         "Sequence too short: {} < {}",
@@ -274,25 +244,33 @@ impl HumanModel {
             };
         }
 
-        let count = jitters.len();
-        let sum: u64 = jitters.iter().map(|&j| j as u64).sum();
-        let mean = sum as f64 / count as f64;
+        // Single-pass Welford's with min/max tracking
+        let mut n: u64 = 0;
+        let mut m = 0.0_f64;
+        let mut s = 0.0_f64;
+        let mut lo = u32::MAX;
+        let mut hi = 0_u32;
 
-        let variance: f64 = jitters
-            .iter()
-            .map(|&j| {
-                let diff = j as f64 - mean;
-                diff * diff
-            })
-            .sum::<f64>()
-            / count as f64;
+        for &j in jitters {
+            n += 1;
+            let x = j as f64;
+            let delta = x - m;
+            m += delta / n as f64;
+            s += delta * (x - m);
+            if j < lo {
+                lo = j;
+            }
+            if j > hi {
+                hi = j;
+            }
+        }
 
         SequenceStats {
-            count,
-            mean,
-            std_dev: sqrt(variance),
-            min: *jitters.iter().min().unwrap_or(&0),
-            max: *jitters.iter().max().unwrap_or(&0),
+            count: n as usize,
+            mean: m,
+            std_dev: sqrt(s / n as f64),
+            min: lo,
+            max: hi,
         }
     }
 
@@ -419,7 +397,7 @@ mod tests {
         assert!(result
             .anomalies
             .iter()
-            .any(|a| matches!(a.kind, AnomalyKind::DistributionMismatch)));
+            .any(|a| matches!(a.kind, AnomalyKind::InsufficientData)));
     }
 
     #[test]

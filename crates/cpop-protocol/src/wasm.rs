@@ -8,13 +8,12 @@
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "wasm")]
-use crate::evidence::CPoPVerifier;
+use crate::evidence::Verifier;
 #[cfg(feature = "wasm")]
 use crate::forensics::{ForensicVerdict, ForensicsEngine};
 #[cfg(feature = "wasm")]
 use ed25519_dalek::VerifyingKey;
 
-/// WASM-exported result of CPoP evidence verification and forensic analysis.
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 pub struct VerificationResult {
@@ -102,7 +101,7 @@ impl VerificationResult {
 /// and Hurst exponent estimation. Returns forensic verdict V1-V5.
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
-pub fn verify_pop_evidence(evidence_bytes: &[u8], public_key_bytes: &[u8]) -> VerificationResult {
+pub fn verify_cpop_evidence(evidence_bytes: &[u8], public_key_bytes: &[u8]) -> VerificationResult {
     let key_bytes: [u8; 32] = match public_key_bytes.try_into() {
         Ok(bytes) => bytes,
         Err(_) => {
@@ -123,7 +122,7 @@ pub fn verify_pop_evidence(evidence_bytes: &[u8], public_key_bytes: &[u8]) -> Ve
         }
     };
 
-    let verifier = CPoPVerifier::new(verifying_key);
+    let verifier = Verifier::new(verifying_key);
 
     match verifier.verify(evidence_bytes) {
         Ok(packet) => {

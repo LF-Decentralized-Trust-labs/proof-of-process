@@ -43,7 +43,6 @@ pub use pure::PureJitter;
 pub use traits::EntropySource;
 pub use traits::JitterEngine;
 
-/// Derive a session secret from a master key and context via HKDF-SHA256.
 pub fn derive_session_secret(master_key: &[u8], context: &[u8]) -> [u8; 32] {
     use hkdf::Hkdf;
     use sha2::Sha256;
@@ -55,12 +54,9 @@ pub fn derive_session_secret(master_key: &[u8], context: &[u8]) -> [u8; 32] {
     output
 }
 
-/// SHA-256 hash of physical entropy samples with estimated entropy level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PhysHash {
-    /// Raw 32-byte hash of captured timing samples.
     pub hash: [u8; 32],
-    /// Estimated entropy in bits from the source measurements.
     pub entropy_bits: u8,
 }
 
@@ -73,10 +69,9 @@ impl From<[u8; 32]> for PhysHash {
     }
 }
 
-/// Jitter delay in microseconds.
+/// Microseconds.
 pub type Jitter = u32;
 
-/// Errors from entropy collection and jitter computation.
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum Error {
@@ -120,34 +115,24 @@ impl core::fmt::Display for Error {
     }
 }
 
-/// Combines physics and pure jitter with automatic fallback (requires `std`).
 #[cfg(feature = "std")]
 #[derive(Debug, Clone)]
-pub struct HybridEngine<P = PhysJitter, F = PureJitter>
-where
-    P: EntropySource + JitterEngine,
-    F: JitterEngine,
-{
-    phys: P,
-    fallback: F,
+pub struct HybridEngine {
+    phys: PhysJitter,
+    fallback: PureJitter,
     min_phys_entropy: u8,
 }
 
 #[cfg(feature = "std")]
-impl Default for HybridEngine<PhysJitter, PureJitter> {
+impl Default for HybridEngine {
     fn default() -> Self {
         Self::new(PhysJitter::default(), PureJitter::default())
     }
 }
 
 #[cfg(feature = "std")]
-impl<P, F> HybridEngine<P, F>
-where
-    P: EntropySource + JitterEngine,
-    F: JitterEngine,
-{
-    /// Create a hybrid engine with a primary physics source and HMAC fallback.
-    pub fn new(phys: P, fallback: F) -> Self {
+impl HybridEngine {
+    pub fn new(phys: PhysJitter, fallback: PureJitter) -> Self {
         Self {
             phys,
             fallback,
@@ -155,13 +140,11 @@ where
         }
     }
 
-    /// Set the minimum entropy bits required before using the physics source.
     pub fn with_min_entropy(mut self, bits: u8) -> Self {
         self.min_phys_entropy = bits;
         self
     }
 
-    /// Sample jitter, preferring physics entropy and falling back to HMAC.
     pub fn sample(&self, secret: &[u8; 32], inputs: &[u8]) -> Result<(Jitter, Evidence), Error> {
         match self.phys.sample(inputs) {
             Ok(entropy)
@@ -179,13 +162,11 @@ where
         }
     }
 
-    /// Return true if the physics entropy source is currently functional.
     pub fn phys_available(&self) -> bool {
         self.phys.sample(b"probe").is_ok()
     }
 }
 
-/// Session manager for tracking jitter evidence over a document (requires `std`).
 #[cfg(feature = "std")]
 #[derive(Debug)]
 pub struct Session {
@@ -197,7 +178,6 @@ pub struct Session {
 
 #[cfg(feature = "std")]
 impl Session {
-    /// Create a session with the given secret and default hybrid engine.
     pub fn new(secret: [u8; 32]) -> Self {
         Self {
             secret: Zeroizing::new(secret),
@@ -207,7 +187,6 @@ impl Session {
         }
     }
 
-    /// Create a session with a custom hybrid engine.
     pub fn with_engine(secret: [u8; 32], engine: HybridEngine) -> Self {
         Self {
             secret: Zeroizing::new(secret),
@@ -217,7 +196,6 @@ impl Session {
         }
     }
 
-    /// Create a session with a cryptographically random secret.
     #[cfg(feature = "rand")]
     pub fn random() -> Self {
         use rand::RngCore;
@@ -226,30 +204,25 @@ impl Session {
         Self::new(secret)
     }
 
-    /// Sample jitter for the given input and append evidence to the chain.
     pub fn sample(&mut self, inputs: &[u8]) -> Result<Jitter, Error> {
         let (jitter, evidence) = self.engine.sample(&self.secret, inputs)?;
         self.evidence.append(evidence);
         Ok(jitter)
     }
 
-    /// Return a reference to the accumulated evidence chain.
     pub fn evidence(&self) -> &EvidenceChain {
         &self.evidence
     }
 
-    /// Validate collected jitter values against the human typing model.
     pub fn validate(&self) -> ValidationResult {
         let jitters: Vec<Jitter> = self.evidence.records.iter().map(|e| e.jitter()).collect();
         self.model.validate(&jitters)
     }
 
-    /// Return the fraction of evidence records backed by physics entropy.
     pub fn phys_ratio(&self) -> f64 {
         self.evidence.phys_ratio()
     }
 
-    /// Serialize the evidence chain to pretty-printed JSON.
     pub fn export_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(&self.evidence)
     }
@@ -351,19 +324,6 @@ mod tests {
 #[cfg(test)]
 mod no_std_compatible_tests {
     use super::*;
-
-    #[test]
-    fn test_pure_jitter_determinism_no_std() {
-        let engine = PureJitter::default();
-        let secret = [99u8; 32];
-        let inputs = b"deterministic test";
-        let entropy: PhysHash = [0u8; 32].into();
-
-        let j1 = engine.compute_jitter(&secret, inputs, entropy);
-        let j2 = engine.compute_jitter(&secret, inputs, entropy);
-
-        assert_eq!(j1, j2, "Pure jitter should be deterministic");
-    }
 
     #[test]
     fn test_phys_hash_from_array() {

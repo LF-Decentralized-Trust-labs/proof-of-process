@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use cpop_protocol::crypto::hash_sha256;
-use cpop_protocol::evidence::{CPoPBuilder, CPoPVerifier};
+use cpop_protocol::evidence::{Builder, Verifier};
 use cpop_protocol::rfc::DocumentRef;
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     println!("[Attester] Starting evidence collection...");
-    let mut builder = CPoPBuilder::new(document, Box::new(signing_key))?;
+    let mut builder = Builder::new(document, Box::new(signing_key))?;
 
     let steps = [
         "Step 1: Research and initial draft.",
@@ -48,7 +48,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     println!("\n[Verifier] Verifying evidence packet...");
-    let verifier = CPoPVerifier::new(verifying_key);
+    let verifier = Verifier::new(verifying_key);
 
     match verifier.verify(&signed_evidence) {
         Ok(packet) => {
