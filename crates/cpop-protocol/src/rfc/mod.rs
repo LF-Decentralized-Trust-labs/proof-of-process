@@ -1,5 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! RFC-compliant data structures for Proof-of-Process evidence.
+//!
+//! This module implements the CDDL-defined structures from draft-condrey-rats-pop-01
+//! and draft-condrey-rats-pop-schema-01. All structures support both CBOR and JSON
+//! serialization for backwards compatibility.
+//!
+//! # Module Organization
+//!
+//! - `fixed_point`: Fixed-point integer types for cross-platform reproducibility
+//! - `checkpoint`: RFC-compliant checkpoint structure with integer keys
+//! - `packet`: RFC-compliant evidence packet structure with integer keys
+//! - `vdf`: VDF proof structures with calibration attestation
+//! - `jitter_binding`: Behavioral entropy binding structures
+//! - `biology`: Biology-invariant claim structures
+//! - `time_evidence`: Time binding and external anchor structures
+//! - `wire_types`: Full CDDL wire-format types for evidence packets and attestation results
+
+pub mod biology;
+pub mod checkpoint;
+pub mod fixed_point;
+pub mod jitter_binding;
+pub mod packet;
+pub(crate) mod serde_helpers;
+pub mod time_evidence;
+pub mod vdf;
+pub mod wire_types;
+
+// === v0.1 backward-compatible types (originally in rfc.rs) ===
+
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
@@ -23,7 +52,7 @@ pub enum HashAlgorithm {
     Sha512 = 3,
 }
 
-/// Hardware attestation strength tier per draft-condrey-rats-pop.
+/// Hardware attestation strength tier per draft-condrey-cpop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u64)]
 pub enum AttestationTier {
@@ -180,3 +209,26 @@ pub struct AttestationResult {
     #[serde(rename = "14", skip_serializing_if = "Option::is_none")]
     pub confidence_tier: Option<crate::baseline::ConfidenceTier>,
 }
+
+// === Re-exports from new submodules ===
+
+pub use biology::{
+    BiologyInvariantClaim, BiologyMeasurements, BiologyScoringParameters, ValidationStatus,
+};
+pub use checkpoint::{BioBinding, CheckpointRfc, SaVdfProof};
+pub use fixed_point::{
+    Centibits, DeciWpm, Decibits, Microdollars, Millibits, RhoMillibits, SlopeDecibits,
+};
+pub use jitter_binding::{
+    ActiveProbes, BindingMac, EntropyCommitment, GaltonInvariant, JitterBinding, JitterSummary,
+    LabyrinthStructure, ReflexGate,
+};
+pub use packet::{
+    ContentHashTree, CorrelationProof, EnclaveVise, KeyRotationMetadata, PacketRfc,
+    PrivacyBudgetCertificate, ProfileDeclaration, VdfStructure, ZkProcessVerdict,
+};
+pub use time_evidence::{
+    BlockchainAnchor, RoughtimeSample, TimeBindingTier, TimeEvidence, TsaResponse,
+};
+pub use vdf::{CalibrationAttestation, VdfProofRfc};
+pub use wire_types::{AttestationResultWire, CheckpointWire, EvidencePacketWire};

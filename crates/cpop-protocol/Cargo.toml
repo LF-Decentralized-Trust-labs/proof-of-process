@@ -1,6 +1,6 @@
 [package]
 name = "cpop-protocol"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["David Condrey <david@writerslogic.com>"]
 license = "Apache-2.0"
@@ -45,6 +45,8 @@ chrono = { version = "0.4", features = ["serde"] }
 hex = "0.4"
 base64 = "0.22"
 serde_bytes = "0.11.19"
+uuid = { version = "1", features = ["v4", "serde"] }
+urlencoding = "2"
 cpop-jitter = { path = "../cpop-jitter", version = "0.2.0" }
 
 # Identity & X.509

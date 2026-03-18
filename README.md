@@ -161,4 +161,4 @@ This project follows the [LF Decentralized Trust Code of Conduct](CODE_OF_CONDUC
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).
 
-IETF draft content is additionally subject to the [IETF Trust Legal Provisions](https://trustee.ietf.org/trust-legal-provisions.html). See [LICENSE.md](LICENSE.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+IETF draft content is additionally subject to the [IETF Trust Legal Provisions](https://trustee.ietf.org/trust-legal-provisions.html). See [LICENSE.md](LICENSE.md) for details on how the Apache-2.0 license and IETF TLP interact, and [CONTRIBUTING.md](CONTRIBUTING.md) for contributor obligations.

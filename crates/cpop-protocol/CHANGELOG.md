@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Wire format aligned with draft-condrey-rats-pop CDDL schema
+- Wire format aligned with draft-condrey-cpop CDDL schema
 - CBOR-tagged evidence packets (tag 600) and attestation results (tag 601)
 - X.509 certificate-based identity with Proof-of-Possession
 - Forensic scoring models (ProcessScore, BehavioralScore)
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial crate structure
 - CBOR/COSE encoding for CPoP packets (RFC 8949, RFC 9052)
 - Ed25519 cryptographic primitives
-- Protocol models as defined in draft-condrey-rats-pop
+- Protocol models as defined in draft-condrey-cpop
 - `no_std` support with `std` feature flag
 - WASM target support behind `wasm` feature
 - Integration with cpop_jitter for timing evidence
