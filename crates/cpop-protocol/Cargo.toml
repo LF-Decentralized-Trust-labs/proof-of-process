@@ -36,7 +36,7 @@ serde_json = "1.0"
 
 # CBOR encoding (RFC 8949 compliance for Proof-of-Process packets)
 ciborium = "0.2"
-coset = "0.3"
+coset = "0.4"
 
 # System & Utilities
 thiserror = "2.0"
