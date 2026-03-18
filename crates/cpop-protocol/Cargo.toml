@@ -21,7 +21,7 @@ exclude = ["tests/", "fuzz/", "benches/", "certs/"]
 sha2 = "0.10"
 hmac = "0.12"
 ed25519-dalek = { version = "2.1", features = ["zeroize"] }
-rand = "0.8"
+rand = "0.10"
 zeroize = { version = "1.8", features = ["derive"] }
 subtle = "2.6"
 
