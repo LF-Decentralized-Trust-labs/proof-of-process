@@ -12,7 +12,6 @@ pub const CBOR_TAG_ATTESTATION_RESULT: u64 = 1129791826;
 /// Registered under SMI Network Management Private Enterprise Codes.
 pub const IANA_PEN: u32 = 65074;
 
-/// Supported hash algorithms for content and checkpoint digests.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u64)]
 pub enum HashAlgorithm {
@@ -38,7 +37,6 @@ pub enum AttestationTier {
     HardwareHardened = 4,
 }
 
-/// Evidence content richness tier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u64)]
 pub enum ContentTier {
@@ -50,19 +48,15 @@ pub enum ContentTier {
     Maximum = 3,
 }
 
-/// Sequential work function algorithm for VDF checkpoint proofs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u64)]
 pub enum ProofAlgorithm {
-    /// Iterated SHA-256 sequential work function.
     SwfSha256 = 10,
-    /// Argon2id-based sequential work function.
     SwfArgon2id = 20,
     /// Argon2id with cross-checkpoint entanglement.
     SwfArgon2idEntangled = 21,
 }
 
-/// High-level attestation verdict for an evidence packet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u64)]
 pub enum Verdict {
@@ -76,7 +70,6 @@ pub enum Verdict {
     Invalid = 4,
 }
 
-/// Algorithm-tagged cryptographic digest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HashValue {
     #[serde(rename = "1")]
@@ -91,7 +84,6 @@ impl HashValue {
         self.algorithm == other.algorithm && self.digest.ct_eq(&other.digest).into()
     }
 
-    /// Return the expected digest length in bytes for the algorithm.
     pub fn expected_digest_len(&self) -> usize {
         match self.algorithm {
             HashAlgorithm::Sha256 => 32,
@@ -100,7 +92,6 @@ impl HashValue {
         }
     }
 
-    /// Check that the digest length matches the algorithm.
     pub fn validate(&self) -> bool {
         self.digest.len() == self.expected_digest_len()
     }
@@ -116,7 +107,6 @@ impl PartialEq for HashValue {
 
 impl Eq for HashValue {}
 
-/// Reference to the document under attestation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocumentRef {
     #[serde(rename = "1")]
@@ -150,7 +140,6 @@ pub struct Checkpoint {
     pub jitter_hash: Option<HashValue>,
 }
 
-/// Top-level CPoP evidence packet containing document ref, checkpoints, and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvidencePacket {
     #[serde(rename = "1")]
@@ -171,7 +160,6 @@ pub struct EvidencePacket {
     pub baseline_verification: Option<crate::baseline::BaselineVerification>,
 }
 
-/// Verifier-issued attestation result for a validated evidence packet.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttestationResult {
     #[serde(rename = "1")]

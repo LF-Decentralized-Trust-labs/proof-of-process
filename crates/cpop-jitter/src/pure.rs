@@ -4,7 +4,6 @@
 
 use crate::{Jitter, JitterEngine, PhysHash};
 
-/// Deterministic HMAC-based jitter engine (no hardware entropy required).
 #[derive(Debug, Clone)]
 pub struct PureJitter {
     /// Minimum jitter output in microseconds.
@@ -23,7 +22,6 @@ impl Default for PureJitter {
 }
 
 impl PureJitter {
-    /// Create a pure jitter engine with the given minimum and range.
     ///
     /// # Panics
     /// Panics if `range` is 0.

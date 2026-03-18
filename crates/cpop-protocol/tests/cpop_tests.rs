@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use cpop_protocol::crypto::hash_sha256;
-use cpop_protocol::evidence::{CPoPBuilder, CPoPVerifier};
+use cpop_protocol::evidence::{Builder, Verifier};
 use cpop_protocol::rfc::DocumentRef;
 use ed25519_dalek::SigningKey;
 use rand::RngCore;
@@ -20,7 +20,7 @@ fn test_cpop_full_roundtrip() {
         char_count: doc_content.len() as u64,
     };
 
-    let mut builder = CPoPBuilder::new(document, Box::new(signing_key)).unwrap();
+    let mut builder = Builder::new(document, Box::new(signing_key)).unwrap();
     builder
         .add_checkpoint(b"Checkpoint 1", 12)
         .expect("Add checkpoint failed");
@@ -30,7 +30,7 @@ fn test_cpop_full_roundtrip() {
 
     let signed_evidence = builder.finalize().expect("Finalize failed");
 
-    let verifier = CPoPVerifier::new(verifying_key);
+    let verifier = Verifier::new(verifying_key);
     let result = verifier
         .verify(&signed_evidence)
         .expect("Verification failed");
@@ -55,7 +55,7 @@ fn test_cpop_tamper_detection() {
         char_count: doc_content.len() as u64,
     };
 
-    let mut builder = CPoPBuilder::new(document, Box::new(signing_key)).unwrap();
+    let mut builder = Builder::new(document, Box::new(signing_key)).unwrap();
     builder.add_checkpoint(b"Safe checkpoint", 15).unwrap();
     let signed_evidence = builder.finalize().unwrap();
 
@@ -65,7 +65,7 @@ fn test_cpop_tamper_detection() {
         *byte ^= 0xFF;
     }
 
-    let verifier = CPoPVerifier::new(verifying_key);
+    let verifier = Verifier::new(verifying_key);
     assert!(verifier.verify(&tampered_evidence).is_err());
 }
 
@@ -132,10 +132,10 @@ fn test_cpop_playback_attack_detection() {
     };
 
     let encoded = encode_evidence(&packet).unwrap();
-    let signer: Box<dyn cpop_protocol::crypto::CPoPSigner> = Box::new(signing_key);
+    let signer: Box<dyn cpop_protocol::crypto::EvidenceSigner> = Box::new(signing_key);
     let signed = sign_evidence_cose(&encoded, signer.as_ref()).unwrap();
 
-    let verifier = CPoPVerifier::new(verifying_key);
+    let verifier = Verifier::new(verifying_key);
     let result = verifier.verify(&signed);
 
     assert!(

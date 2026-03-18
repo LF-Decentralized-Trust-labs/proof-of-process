@@ -6,10 +6,8 @@ use sha2::{Digest, Sha256};
 
 use crate::{EntropySource, Error, Jitter, JitterEngine, PhysHash};
 
-/// Hardware entropy source using CPU timing counter measurements.
 #[derive(Debug, Clone)]
 pub struct PhysJitter {
-    /// Minimum entropy bits required for a valid sample.
     pub min_entropy_bits: u8,
     /// Minimum jitter output in microseconds.
     pub jmin: u32,
@@ -28,7 +26,6 @@ impl Default for PhysJitter {
 }
 
 impl PhysJitter {
-    /// Create a physics jitter source with the given minimum entropy requirement.
     pub fn new(min_entropy_bits: u8) -> Self {
         Self {
             min_entropy_bits,
@@ -36,7 +33,6 @@ impl PhysJitter {
         }
     }
 
-    /// Set the jitter output range.
     ///
     /// # Panics
     /// Panics if `range` is 0.
@@ -61,6 +57,8 @@ impl PhysJitter {
     #[cfg(feature = "hardware")]
     fn capture_timing_samples(&self, count: usize) -> Result<Vec<u64>, Error> {
         let mut samples = Vec::with_capacity(count);
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+        let start = std::time::Instant::now();
 
         for _ in 0..count {
             #[cfg(target_arch = "x86_64")]
@@ -88,9 +86,7 @@ impl PhysJitter {
 
             #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
             {
-                use std::time::Instant;
-                let now = Instant::now();
-                samples.push(now.elapsed().as_nanos() as u64);
+                samples.push(start.elapsed().as_nanos() as u64);
             }
         }
 

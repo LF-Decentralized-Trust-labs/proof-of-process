@@ -5,7 +5,6 @@ use thiserror::Error;
 /// Alias for `std::result::Result` with the protocol `Error` type.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Protocol-level error covering I/O, serialization, crypto, and validation failures.
 #[derive(Debug, Error)]
 pub enum Error {
     /// Wrap a `std::io::Error`.
@@ -24,11 +23,9 @@ pub enum Error {
     #[error("protocol violation: {0}")]
     Protocol(String),
 
-    /// Structural or semantic validation failure.
     #[error("validation failed: {0}")]
     Validation(String),
 
-    /// Catch-all for unclassified errors.
     #[error("unknown error: {0}")]
     Unknown(String),
 }

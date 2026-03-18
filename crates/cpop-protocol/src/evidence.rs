@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::codec::{decode_evidence, encode_evidence};
-use crate::crypto::{hash_sha256, sign_evidence_cose, verify_evidence_cose, CPoPSigner};
+use crate::crypto::{hash_sha256, sign_evidence_cose, verify_evidence_cose, EvidenceSigner};
 use crate::error::{Error, Result};
 use crate::rfc::{
     AttestationTier, Checkpoint, DocumentRef, EvidencePacket, HashAlgorithm, HashValue,
@@ -12,8 +12,22 @@ use rand::rngs::OsRng;
 use rand::RngCore;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+fn hash_document_ref(doc: &DocumentRef) -> Result<HashValue> {
+    let mut buf = Vec::new();
+    ciborium::into_writer(doc, &mut buf)
+        .map_err(|e| Error::Protocol(format!("CBOR encode document-ref: {e}")))?;
+    Ok(hash_sha256(&buf))
+}
+
+fn now_millis() -> Result<u64> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| Error::Protocol(format!("system clock error: {}", e)))?
+        .as_millis() as u64)
+}
+
 /// Incrementally build a signed CPoP evidence packet with causality-chained checkpoints.
-pub struct CPoPBuilder {
+pub struct Builder {
     version: u32,
     profile_uri: String,
     packet_id: [u8; 16],
@@ -21,27 +35,20 @@ pub struct CPoPBuilder {
     document: DocumentRef,
     checkpoints: Vec<Checkpoint>,
     last_checkpoint_hash: HashValue,
-    signer: Box<dyn CPoPSigner>,
+    signer: Box<dyn EvidenceSigner>,
     jitter: PhysJitter,
     attestation_tier: AttestationTier,
     baseline_verification: Option<crate::baseline::BaselineVerification>,
 }
 
-impl CPoPBuilder {
-    /// Create a new builder for the given document, generating a random packet ID.
-    pub fn new(document: DocumentRef, signer: Box<dyn CPoPSigner>) -> Result<Self> {
+impl Builder {
+    pub fn new(document: DocumentRef, signer: Box<dyn EvidenceSigner>) -> Result<Self> {
         let mut packet_id = [0u8; 16];
         OsRng.fill_bytes(&mut packet_id);
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|e| Error::Protocol(format!("system clock error: {}", e)))?
-            .as_millis() as u64;
+        let now = now_millis()?;
 
-        let mut doc_cbor = Vec::new();
-        ciborium::into_writer(&document, &mut doc_cbor)
-            .map_err(|e| Error::Protocol(format!("CBOR encode document-ref: {e}")))?;
-        let initial_hash = hash_sha256(&doc_cbor);
+        let initial_hash = hash_document_ref(&document)?;
 
         Ok(Self {
             version: 1,
@@ -63,18 +70,14 @@ impl CPoPBuilder {
         self
     }
 
-    /// Attach baseline behavioral verification data to this evidence packet.
     pub fn with_baseline_verification(mut self, bv: crate::baseline::BaselineVerification) -> Self {
         self.baseline_verification = Some(bv);
         self
     }
 
-    /// Append a checkpoint for the current document content, extending the causality chain.
+    /// Append a checkpoint, extending the causality chain.
     pub fn add_checkpoint(&mut self, content: &[u8], char_count: u64) -> Result<()> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|e| Error::Protocol(format!("system clock error: {}", e)))?
-            .as_millis() as u64;
+        let now = now_millis()?;
 
         let sequence = self.checkpoints.len() as u64;
         let mut checkpoint_id = [0u8; 16];
@@ -134,12 +137,11 @@ impl CPoPBuilder {
 }
 
 /// Verify COSE-signed evidence packets: signature, causality chain, and temporal consistency.
-pub struct CPoPVerifier {
+pub struct Verifier {
     verifying_key: VerifyingKey,
 }
 
-impl CPoPVerifier {
-    /// Create a verifier bound to the given Ed25519 public key.
+impl Verifier {
     pub fn new(verifying_key: VerifyingKey) -> Self {
         Self { verifying_key }
     }
@@ -150,10 +152,7 @@ impl CPoPVerifier {
         let packet = decode_evidence(&payload)?;
         self.validate_structure(&packet)?;
 
-        let mut doc_cbor = Vec::new();
-        ciborium::into_writer(&packet.document, &mut doc_cbor)
-            .map_err(|e| Error::Protocol(format!("CBOR encode document-ref: {e}")))?;
-        let mut last_hash = hash_sha256(&doc_cbor);
+        let mut last_hash = hash_document_ref(&packet.document)?;
 
         for (i, checkpoint) in packet.checkpoints.iter().enumerate() {
             if checkpoint.sequence != i as u64 {
@@ -316,7 +315,7 @@ impl CPoPVerifier {
         }
 
         let mut last_ts = packet.created;
-        let mut intervals = Vec::new();
+        let mut intervals = Vec::with_capacity(packet.checkpoints.len().saturating_sub(1));
 
         for checkpoint in &packet.checkpoints {
             if checkpoint.timestamp < last_ts {

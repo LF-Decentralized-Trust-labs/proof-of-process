@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Evidence types for proof-of-process records.
-
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
@@ -10,7 +8,6 @@ use zeroize::Zeroizing;
 
 use crate::{Jitter, PhysHash};
 
-/// Single jitter measurement record, either physics-backed or HMAC-only.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Evidence {
@@ -30,7 +27,6 @@ pub enum Evidence {
 }
 
 impl Evidence {
-    /// Create a physics-backed evidence record with an explicit timestamp.
     pub fn phys_with_timestamp(phys_hash: PhysHash, jitter: Jitter, timestamp_us: u64) -> Self {
         Self::Phys {
             phys_hash,
@@ -40,7 +36,6 @@ impl Evidence {
         }
     }
 
-    /// Create an HMAC-only evidence record with an explicit timestamp.
     pub fn pure_with_timestamp(jitter: Jitter, timestamp_us: u64) -> Self {
         Self::Pure {
             jitter,
@@ -49,19 +44,16 @@ impl Evidence {
         }
     }
 
-    /// Create a physics-backed evidence record timestamped to now.
     #[cfg(feature = "std")]
     pub fn phys(phys_hash: PhysHash, jitter: Jitter) -> Self {
         Self::phys_with_timestamp(phys_hash, jitter, current_timestamp_us())
     }
 
-    /// Create an HMAC-only evidence record timestamped to now.
     #[cfg(feature = "std")]
     pub fn pure(jitter: Jitter) -> Self {
         Self::pure_with_timestamp(jitter, current_timestamp_us())
     }
-
-    /// Return the sequence number assigned by the evidence chain.
+    #[inline]
     pub fn sequence(&self) -> u64 {
         match self {
             Evidence::Phys { sequence, .. } => *sequence,
@@ -97,32 +89,27 @@ impl Evidence {
         }
     }
 
-    /// Feed all fields into a SHA-256 hasher for chain integrity.
     pub fn hash_into(&self, hasher: &mut sha2::Sha256) {
         use sha2::Digest;
         self.write_fields(|bytes| hasher.update(bytes));
     }
 
-    /// Feed all fields into an HMAC-SHA256 for keyed chain integrity.
     pub fn hash_into_mac(&self, mac: &mut hmac::Hmac<sha2::Sha256>) {
         use hmac::Mac;
         self.write_fields(|bytes| mac.update(bytes));
     }
-
-    /// Return the jitter delay in microseconds.
+    #[inline]
     pub fn jitter(&self) -> Jitter {
         match self {
             Evidence::Phys { jitter, .. } => *jitter,
             Evidence::Pure { jitter, .. } => *jitter,
         }
     }
-
-    /// Return true if this record is backed by physics entropy.
+    #[inline]
     pub fn is_phys(&self) -> bool {
         matches!(self, Evidence::Phys { .. })
     }
-
-    /// Return the timestamp in microseconds since the UNIX epoch.
+    #[inline]
     pub fn timestamp_us(&self) -> u64 {
         match self {
             Evidence::Phys { timestamp_us, .. } => *timestamp_us,
@@ -153,7 +140,6 @@ impl Evidence {
     }
 }
 
-/// Max number of evidence records in a single chain.
 /// Prevents unbounded allocation on deserialization of untrusted data.
 pub const MAX_EVIDENCE_RECORDS: usize = 100_000;
 
@@ -163,7 +149,6 @@ pub const MAX_EVIDENCE_RECORDS: usize = 100_000;
 pub struct EvidenceChain {
     /// Wire format version (currently 1).
     pub version: u8,
-    /// Ordered evidence records.
     pub records: Vec<Evidence>,
     /// Running HMAC-SHA256 (keyed) or SHA-256 (unkeyed) over all records.
     pub chain_mac: [u8; 32],
@@ -302,15 +287,11 @@ impl EvidenceChain {
 
         expected_mac.ct_eq(&self.chain_mac).into()
     }
-
-    /// Return true if all timestamps are monotonically non-decreasing.
     pub fn validate_timestamps(&self) -> bool {
         self.records
             .windows(2)
             .all(|w| w[0].timestamp_us() <= w[1].timestamp_us())
     }
-
-    /// Return true if all sequence numbers are contiguous starting from 0.
     pub fn validate_sequences(&self) -> bool {
         self.records
             .iter()
@@ -318,17 +299,13 @@ impl EvidenceChain {
             .all(|(i, e)| e.sequence() == i as u64)
     }
 
-    /// Count records backed by physics entropy.
     pub fn phys_count(&self) -> usize {
         self.records.iter().filter(|e| e.is_phys()).count()
     }
 
-    /// Count records using HMAC-only jitter.
     pub fn pure_count(&self) -> usize {
-        self.records.iter().filter(|e| !e.is_phys()).count()
+        self.records.len() - self.phys_count()
     }
-
-    /// Return the fraction of records backed by physics entropy (0.0 if empty).
     pub fn phys_ratio(&self) -> f64 {
         if self.records.is_empty() {
             0.0
@@ -337,7 +314,6 @@ impl EvidenceChain {
         }
     }
 
-    /// Verify every record by recomputing jitter from the original inputs.
     pub fn verify_chain<E: crate::JitterEngine>(
         &self,
         secret: &[u8; 32],

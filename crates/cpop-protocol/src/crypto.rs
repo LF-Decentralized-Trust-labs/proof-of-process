@@ -68,17 +68,14 @@ fn compute_causality_lock_inner(
     })
 }
 
-/// Abstraction over signing backends (Ed25519 software key, TPM).
-pub trait CPoPSigner {
+pub trait EvidenceSigner {
     /// Sign `data` and return the raw signature bytes.
     fn sign(&self, data: &[u8]) -> Result<Vec<u8>>;
-    /// Return the COSE algorithm identifier for this signer.
     fn algorithm(&self) -> coset::iana::Algorithm;
-    /// Return the raw public key bytes.
     fn public_key(&self) -> Vec<u8>;
 }
 
-impl CPoPSigner for SigningKey {
+impl EvidenceSigner for SigningKey {
     fn sign(&self, data: &[u8]) -> Result<Vec<u8>> {
         Ok(ed25519_dalek::Signer::sign(self, data).to_bytes().to_vec())
     }
@@ -92,13 +89,21 @@ impl CPoPSigner for SigningKey {
     }
 }
 
-/// Wrap `payload` in a COSE_Sign1 envelope using the given signer.
-pub fn sign_evidence_cose(payload: &[u8], signer: &dyn CPoPSigner) -> Result<Vec<u8>> {
+pub fn sign_evidence_cose(payload: &[u8], signer: &dyn EvidenceSigner) -> Result<Vec<u8>> {
+    cose_sign1(payload, signer, coset::Header::default())
+}
+
+pub(crate) fn cose_sign1(
+    payload: &[u8],
+    signer: &dyn EvidenceSigner,
+    unprotected: coset::Header,
+) -> Result<Vec<u8>> {
     let protected = HeaderBuilder::new().algorithm(signer.algorithm()).build();
 
     let mut sign_error: Option<Error> = None;
     let sign1 = CoseSign1Builder::new()
         .protected(protected)
+        .unprotected(unprotected)
         .payload(payload.to_vec())
         .create_signature(&[], |sig_data| match signer.sign(sig_data) {
             Ok(sig) => sig,
@@ -113,7 +118,6 @@ pub fn sign_evidence_cose(payload: &[u8], signer: &dyn CPoPSigner) -> Result<Vec
         return Err(e);
     }
 
-    // Empty signature indicates a signing failure not captured by the error path
     if sign1.signature.is_empty() {
         return Err(Error::Crypto(
             "COSE signing produced empty signature".to_string(),
@@ -125,7 +129,6 @@ pub fn sign_evidence_cose(payload: &[u8], signer: &dyn CPoPSigner) -> Result<Vec
         .map_err(|e| Error::Crypto(format!("COSE encoding error: {}", e)))
 }
 
-/// Verify a COSE_Sign1 envelope and return the enclosed payload.
 pub fn verify_evidence_cose(cose_data: &[u8], verifying_key: &VerifyingKey) -> Result<Vec<u8>> {
     let sign1 = coset::CoseSign1::from_slice(cose_data)
         .map_err(|e| Error::Crypto(format!("COSE decoding error: {}", e)))?;
